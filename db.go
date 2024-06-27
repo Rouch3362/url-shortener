@@ -2,7 +2,18 @@ package main
 
 import (
 	"database/sql"
+	"fmt"
+
+	"log"
+	"net/http"
 )
+
+
+type DBCommands interface {
+	CreateUserDB(*User) (*User , error)
+	GetUserByUsernameDB(username string) (*User , *Error)
+}
+
 
 type Storage struct {
 	DB *sql.DB
@@ -44,7 +55,7 @@ func (s *Storage) Init() error{
 func (s *Storage) CreateUsersTable() error {
 	query := `CREATE TABLE IF NOT EXISTS users(
 		id			SERIAL PRIMARY KEY UNIQUE,
-		username	VARCHAR(100) NOT NULL,
+		username	VARCHAR(100) NOT NULL UNIQUE,
 		password	VARCHAR(100) NOT NULL,
 		created_at	timestamp 	 NOT NULL
 	)`
@@ -68,4 +79,67 @@ func (s *Storage) CreateUrlsTable() error {
 
 
 	return err
+}
+
+
+
+func (s *Storage) GetUserByUsernameDB(username string) (*User , *Error) {
+	query := "SELECT * FROM users WHERE username=$1"
+
+	// created an instance for filling it with result from database
+	user := User{}
+
+	// QueryRow returns only one row and if we use scan after it it will return an error or nil
+	// scan accepts destination for returned columns from database. in this case we didn't use RETURNING in postgres so it will return all columns
+	err := s.DB.QueryRow(query , username).Scan(&user.ID , &user.Username , &user.Password , &user.CreatedAt)
+
+	// this will occure when no result founded
+	if err == sql.ErrNoRows {
+		return nil, &Error{Message: fmt.Sprintf("user with username: %s not found", username) , Code: http.StatusNotFound}
+	}
+
+	return &user , nil
+}
+
+
+func (s *Storage) GetUserByIDDB(id int) (*User , *Error) {
+	query := "SELECT * FROM users WHERE id=$1"
+	
+	user := User{}
+
+	err := s.DB.QueryRow(query , id).Scan(&user.ID , &user.Username , &user.Password , &user.CreatedAt)
+
+	if err == sql.ErrNoRows {
+		return nil, &Error{
+			Message: "user not found",
+			Code: http.StatusNotFound,
+		}
+	}
+
+	return &user , nil
+}
+
+func (s *Storage) CreateUserDB(user *UserRequest) (*User , error) {
+	// we use returning for insert because postgres by default will not return columns in insert command so we use it for fetching user and sending response to request source
+	query := `INSERT INTO users (username , password, created_at) VALUES (
+		$1,$2,$3) RETURNING id`
+		
+	// an empty instance for user id
+	var id int
+	// the only column it returns is id 
+	err := s.DB.QueryRow(query , user.Username , user.Password , user.CreatedAt).Scan(&id)
+
+
+	if err != nil {
+		log.Fatal(err)
+	}
+	
+	// fetching user by username
+	foundedUser , findingErr := s.GetUserByIDDB(id)
+
+	if findingErr != nil {
+		return nil , err
+	}
+	// we don't use pointer in this code and above error, because the GetUserByUsernameDB already returns pointer for user
+	return foundedUser, nil
 }
