@@ -1,13 +1,16 @@
 package main
 
 import (
+	"log"
 	"net/http"
 	"time"
+
+	"golang.org/x/crypto/bcrypt"
 )
 
 // our custom error struct
 type Error struct {
-	Message string `json:"error"`
+	Message string `json:"message"`
 	Code  int    `json:"code"`
 }
 
@@ -43,10 +46,15 @@ func (u *UserRequest) CreateUser() (*UserRequest, *Error) {
 			Code: http.StatusBadRequest,
 		}
 	}
-
+	// hashing password
+	hashPassword , hashErr := bcrypt.GenerateFromPassword([]byte(u.Password) , bcrypt.DefaultCost)
+	
+	if hashErr != nil {
+		log.Fatal(hashErr)
+	}
 	user := &UserRequest{
 		Username: u.Username, 
-		Password: u.Password,
+		Password: string(hashPassword),
 		CreatedAt: time.Now().UTC(),
 	}
 
