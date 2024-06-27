@@ -3,22 +3,13 @@ package main
 import (
 	"fmt"
 	"log"
-	"os"
-
-	"github.com/joho/godotenv"
 )
 
 func main() {
 	db , err := NewDB()
 
-	envErr := godotenv.Load(".env")
 
-	if envErr != nil {
-		log.Fatal(envErr)
-	}
-
-	PORT := os.Getenv("PORT")
-
+	PORT := LoadEnvVariable("PORT")
 
 	if err != nil {
 		log.Fatal(err)
