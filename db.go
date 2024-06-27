@@ -3,6 +3,7 @@ package main
 import (
 	"database/sql"
 	"fmt"
+	"strings"
 
 	"log"
 	"net/http"
@@ -119,7 +120,7 @@ func (s *Storage) GetUserByIDDB(id int) (*User , *Error) {
 	return &user , nil
 }
 
-func (s *Storage) CreateUserDB(user *UserRequest) (*User , error) {
+func (s *Storage) CreateUserDB(user *UserRequest) (*User , *Error) {
 	// we use returning for insert because postgres by default will not return columns in insert command so we use it for fetching user and sending response to request source
 	query := `INSERT INTO users (username , password, created_at) VALUES (
 		$1,$2,$3) RETURNING id`
@@ -130,7 +131,14 @@ func (s *Storage) CreateUserDB(user *UserRequest) (*User , error) {
 	err := s.DB.QueryRow(query , user.Username , user.Password , user.CreatedAt).Scan(&id)
 
 
-	if err != nil {
+	if strings.Contains(err.Error(),"duplicate") {
+		return nil , &Error{
+			Message: fmt.Sprintf("user with username: %s already exists." , user.Username),
+			Code: http.StatusConflict,
+		}
+	}
+
+	if err != nil && !strings.Contains(err.Error(),"duplicate") {
 		log.Fatal(err)
 	}
 	
@@ -138,7 +146,7 @@ func (s *Storage) CreateUserDB(user *UserRequest) (*User , error) {
 	foundedUser , findingErr := s.GetUserByIDDB(id)
 
 	if findingErr != nil {
-		return nil , err
+		return nil , findingErr
 	}
 	// we don't use pointer in this code and above error, because the GetUserByUsernameDB already returns pointer for user
 	return foundedUser, nil
