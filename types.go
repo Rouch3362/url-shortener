@@ -2,7 +2,6 @@ package main
 
 import (
 	"log"
-	"net/http"
 	"time"
 
 	"golang.org/x/crypto/bcrypt"
@@ -32,20 +31,24 @@ type UserRequest struct {
 	CreatedAt time.Time	`json:"createdAt" db:"created_at"`
 }
 
+type JwtToken struct {
+	Access 	string 	`json:"access" db:"access"`
+	// Refresh	string	`json:"refresh" db:"refresh"`
+}
+
+type LoginRequest struct {
+	Username string 	`json:"username" db:"username"`
+	Passwrod string		`json:"password" db:"password"`
+}
+
 // a method for creating an instancee of user before saving it to database
 func (u *UserRequest) CreateUser() (*UserRequest, *Error) {
-	// checks if the request for creating user has requried fields
-	if u.Username == "" || u.Password == "" {
-		return nil , &Error{
-			Message: "username and password fields are required.", 
-			Code: http.StatusBadRequest,
-		}
-	} else if len(u.Username) < 8 || len(u.Password) < 8 {
-		return nil , &Error{
-			Message: "username and password must be longer than 8 characters.",
-			Code: http.StatusBadRequest,
-		}
+	validateErr := ValidatePayload(u.Username , u.Password)
+
+	if validateErr != nil {
+		return nil,validateErr
 	}
+
 	// hashing password
 	hashPassword , hashErr := bcrypt.GenerateFromPassword([]byte(u.Password) , bcrypt.DefaultCost)
 	
