@@ -7,6 +7,7 @@ import (
 
 	"log"
 	"net/http"
+
 )
 
 
@@ -25,7 +26,10 @@ type Storage struct {
 
 
 func NewDB() (*Storage, error) {
-	connectionStr := "user=postgres dbname=postgres password=amirali3362 sslmode=disable"
+	DB_USER := LoadEnvVariable("DB_USER")
+	DB_NAME := LoadEnvVariable("DB_NAME")
+	DB_PASS := LoadEnvVariable("DB_PASS")
+	connectionStr := fmt.Sprintf("user=%s dbname=%s password=%s sslmode=disable", DB_USER , DB_NAME , DB_PASS)
 	
 	db , err := sql.Open("postgres" , connectionStr)
 
