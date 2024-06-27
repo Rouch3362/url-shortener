@@ -30,9 +30,13 @@ func NewDB() (*Storage, error) {
 
 func (s *Storage) Init() error{
 	err := s.CreateUsersTable()
+	if err != nil {
+		return err
+	}
 	err  = s.CreateUrlsTable()
 	
 	return err
+	
 }
 
 
