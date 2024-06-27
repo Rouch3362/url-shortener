@@ -6,8 +6,10 @@ import (
 	"net/http"
 )
 
+// a helper function for producing responses
 func JsonGenerator(w http.ResponseWriter , statusCode int , value any) {
 	w.Header().Add("Content-Type" , "application/json")
+	
 	w.WriteHeader(statusCode)
 
 	err := json.NewEncoder(w).Encode(value)
@@ -15,6 +17,4 @@ func JsonGenerator(w http.ResponseWriter , statusCode int , value any) {
 	if err != nil {
 		log.Fatal(err)
 	}
-
 }
-
