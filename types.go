@@ -37,11 +37,9 @@ func (u *UserRequest) CreateUser() (*UserRequest, *Error) {
 			Message: "username and password fields are required.", 
 			Code: http.StatusBadRequest,
 		}
-	}
-
-	if len(u.Username) < 8 || len(u.Password) < 8 {
+	} else if len(u.Username) < 8 || len(u.Password) < 8 {
 		return nil , &Error{
-			Message: "username and password should be bigger than 8 characters.",
+			Message: "username and password must be longer than 8 characters.",
 			Code: http.StatusBadRequest,
 		}
 	}
