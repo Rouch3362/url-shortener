@@ -82,6 +82,7 @@ func (a *APIServer) CreateUserHandler(w http.ResponseWriter , r *http.Request) {
 	// sends error if payload is not valid
 	if userErr != nil {
 		JsonGenerator(w , userErr.Code , userErr)
+		return
 	}
 
 	// save created user to database
@@ -89,7 +90,8 @@ func (a *APIServer) CreateUserHandler(w http.ResponseWriter , r *http.Request) {
 
 	// sends error if user is already exist
 	if DBerr != nil {
-		log.Fatal(DBerr)
+		JsonGenerator(w , DBerr.Code , DBerr)
+		return
 	}
 	
 	// if everything is okay returns created user
