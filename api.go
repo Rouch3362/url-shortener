@@ -31,7 +31,8 @@ func (a *APIServer) Run() error {
 	subRouter.HandleFunc("/hello" , a.SayHello).Methods("GET")
 	subRouter.HandleFunc("/user", a.CreateUserHandler).Methods("POST")
 	subRouter.HandleFunc("/user/{username}", a.GetUserByUsernameHandler).Methods("GET")
-
+	subRouter.HandleFunc("/user/login" , a.LoginHandler).Methods("POST")
+	
 	err := http.ListenAndServe(a.Addr , router)
 
 
@@ -53,7 +54,7 @@ func (a *APIServer) GetUserByUsernameHandler(w http.ResponseWriter , r *http.Req
 	user , err := a.DB.GetUserByUsernameDB(username)
 
 	if err != nil {
-		JsonGenerator(w , err.Code , err)
+		ErrorGenerator(w, err)
 		return
 	}
 
@@ -81,7 +82,7 @@ func (a *APIServer) CreateUserHandler(w http.ResponseWriter , r *http.Request) {
 
 	// sends error if payload is not valid
 	if userErr != nil {
-		JsonGenerator(w , userErr.Code , userErr)
+		ErrorGenerator(w, userErr)
 		return
 	}
 
@@ -90,7 +91,7 @@ func (a *APIServer) CreateUserHandler(w http.ResponseWriter , r *http.Request) {
 
 	// sends error if user is already exist
 	if DBerr != nil {
-		JsonGenerator(w , DBerr.Code , DBerr)
+		ErrorGenerator(w , DBerr)
 		return
 	}
 	
@@ -98,6 +99,48 @@ func (a *APIServer) CreateUserHandler(w http.ResponseWriter , r *http.Request) {
 	JsonGenerator(w , http.StatusCreated , createdUser)
 }	
 
+
+func (a *APIServer) LoginHandler(w http.ResponseWriter , r *http.Request) {
+	user := &LoginRequest{}
+
+	json.NewDecoder(r.Body).Decode(user)
+
+	// validate fields user enters
+	validateErr := ValidatePayload(user.Username, user.Passwrod)
+
+	if validateErr != nil {
+		ErrorGenerator(w , validateErr)
+		return
+	}
+
+	// check if user with entered username exists
+	userExists, notFoundErr := a.DB.GetUserByUsernameDB(user.Username)
+
+	if notFoundErr != nil {
+		ErrorGenerator(w, notFoundErr)
+		return
+	}
+
+	// check if entered password is valid for the user
+	passErr := IsPasswordValid(userExists.Password,user.Passwrod)
+
+	if passErr != nil {
+		ErrorGenerator(w , passErr)
+		return
+	}
+
+	// creating jwt token
+	tokenString , jwtErr := CreateJWT(user)
+
+	if jwtErr != nil {
+		log.Fatal(jwtErr)
+	}
+
+	token := &JwtToken{Access: tokenString}
+
+	JsonGenerator(w , http.StatusOK , token)
+
+}
 
 
 
