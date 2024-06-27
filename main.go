@@ -1,7 +1,28 @@
 package main
 
-import "fmt"
+import (
+	"fmt"
+	"log"
+)
 
 func main() {
-	fmt.Print("hello world")
+	db , err := NewDB()
+
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	if err := db.Init(); err != nil {
+		log.Fatal(err)
+	}
+
+	server := NewApiServer(":8000" , *db)
+
+	runErr := server.Run() 
+	
+	if runErr != nil {
+		log.Fatal(err)
+	}
+
+	fmt.Println("server listening on port:8000")
 }
