@@ -12,7 +12,8 @@ import (
 
 type DBCommands interface {
 	CreateUserDB(*User) (*User , error)
-	GetUserByUsernameDB(username string) (*User , *Error)
+	GetUserByUsernameDB(string) (*User , *Error)
+	GetUserByIDDB(int) (*User , *Error)
 }
 
 
@@ -131,7 +132,7 @@ func (s *Storage) CreateUserDB(user *UserRequest) (*User , *Error) {
 	err := s.DB.QueryRow(query , user.Username , user.Password , user.CreatedAt).Scan(&id)
 
 
-	if strings.Contains(err.Error(),"duplicate") {
+	if err != nil && strings.Contains(err.Error(),"duplicate") {
 		return nil , &Error{
 			Message: fmt.Sprintf("user with username: %s already exists." , user.Username),
 			Code: http.StatusConflict,
