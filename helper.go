@@ -5,6 +5,8 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"regexp"
+	"strings"
 	"time"
 
 	"github.com/golang-jwt/jwt"
@@ -28,7 +30,7 @@ func LoadEnvVariable(varName string) string {
 }
 
 
-func ValidatePayload(username , password string) *Error{
+func ValidateUserPayload(username , password string) *Error{
 	// checks if the request for creating user has requried fields
 	if username == "" || password == "" {
 		return &Error{
@@ -42,6 +44,29 @@ func ValidatePayload(username , password string) *Error{
 			Code: http.StatusBadRequest,
 		}
 	}
+
+	return nil
+}
+
+func ValidateUrlPayload(url *CreateUrlRequest) *Error {
+	
+	if url.Url == "" {
+		return &Error{
+			Message: "the url field is required.",
+			Code: http.StatusBadRequest,
+		}
+	}
+	
+	UrlRegex := `^(http:\/\/www\.|https:\/\/www\.|http:\/\/|https:\/\/|\/|\/\/)?[A-z0-9_-]*?[:]?[A-z0-9_-]*?[@]?[A-z0-9]+([\-\.]{1}[a-z0-9]+)*\.[a-z]{2,5}(:[0-9]{1,5})?(\/.*)?$`
+	matched , _  := regexp.MatchString(UrlRegex,url.Url)
+
+	if !matched {
+		return &Error{
+			Message: "the value of url field you entered is not an URL.",
+			Code: http.StatusBadRequest,
+		}
+	}
+
 
 	return nil
 }
@@ -108,7 +133,7 @@ func CreateRefreshToken(userId int) (string , error) {
 }
 
 // verifies if token is valid and not expired
-func VerifyToken(token string, wantUserId bool /* only for returning user id when verifieng refresh token */) (int,*Error) {
+func VerifyToken(token string, wantUserCreden bool /* only for returning user id when verifieng refresh token */) (*VerifyTokenResult,*Error) {
 	// loading jwt secret
 	JWT_SECRET := LoadEnvVariable("JWT_SECRET")
 
@@ -117,20 +142,34 @@ func VerifyToken(token string, wantUserId bool /* only for returning user id whe
 
 
 	if err != nil {
-		return 0, &Error{
+		return nil, &Error{
 			Message: err.Error(),
 			Code: http.StatusUnauthorized,
 		}
 	}
+
+	
+
 	// if the function called with wantUserId == true the function returns the user id
-	if wantUserId {
+	if wantUserCreden {
 		// get claims of the token
 		claims := parsedClaims.Claims.(jwt.MapClaims)
-		// convert the exp field first to a float because of interface of that is a float and then to an int
-		return int(claims["sub"].(float64)), nil
+
+		verifyTokenRes := VerifyTokenResult{}
+
+		// check if sub field is in claims
+		if val, ok := claims["sub"]; ok {
+			// convert the userid field first to a float because of interface of that is a float and then to an int
+			verifyTokenRes.UserId = int(val.(int))
+			return &verifyTokenRes,nil
+		} else { // if token does not have sub field so it has username field
+			verifyTokenRes.Username = string(claims["username"].(string))
+			return &verifyTokenRes,nil
+		}
+	
 	}
 
-	return 0,nil
+	return nil,nil
 }
 
 
@@ -154,3 +193,16 @@ func ErrorGenerator(w http.ResponseWriter, error *Error) {
 	JsonGenerator(w,error.Code , error)
 }
 
+func ExtractRawToken(token string) (string, *Error){
+	// checks if token is entered
+	if token != "" && (strings.Contains(token , "Bearer ") || strings.Contains(token,"bearer")) {
+		token = token[len("Bearer "):]
+	}
+
+	// checks if tokne is not empty
+	if token == "" {
+		return "" , &Error{"authorization token not provided." , http.StatusUnauthorized}
+	}
+
+	return token,nil
+}
