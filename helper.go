@@ -60,12 +60,12 @@ func JsonGenerator(w http.ResponseWriter , statusCode int , value any) {
 }
 
 
-func CreateJWT(user *LoginRequest) (string , error) {
+func CreateJWT(user *User) (string , error) {
 	// claims (fields) we want in our jwt token
 	claims := jwt.MapClaims{
 		"username": user.Username,
 		// expires after 1 day of creation
-		"exp": time.Now().Add(time.Hour*24).UTC(),
+		"exp": time.Now().Add(time.Hour * 24).Unix(),
 	}
 
 	// creating token based on ecryption algorithm
@@ -84,6 +84,54 @@ func CreateJWT(user *LoginRequest) (string , error) {
 	return tokenString,nil
 }
 
+// creates a refresh token with user's id
+func CreateRefreshToken(userId int) (string , error) {
+	claims := jwt.MapClaims{
+		// user's ID for accessing user from database
+		"sub": userId,
+		"exp": time.Now().Add(time.Hour * 24).Unix(),
+	}
+
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256 , claims)
+
+	JWT_SECRET := LoadEnvVariable("JWT_SECRET")
+	// generates token
+	refreshString , err := token.SignedString([]byte(JWT_SECRET))
+
+	if err != nil {
+		return "" , err
+	}
+
+
+	return refreshString , nil
+
+}
+
+// verifies if token is valid and not expired
+func VerifyToken(token string, wantUserId bool /* only for returning user id when verifieng refresh token */) (int,*Error) {
+	// loading jwt secret
+	JWT_SECRET := LoadEnvVariable("JWT_SECRET")
+
+	// parse token 
+	parsedClaims, err := jwt.Parse(token , func(t *jwt.Token) (interface{}, error) {return []byte(JWT_SECRET) , nil})
+
+
+	if err != nil {
+		return 0, &Error{
+			Message: err.Error(),
+			Code: http.StatusUnauthorized,
+		}
+	}
+	// if the function called with wantUserId == true the function returns the user id
+	if wantUserId {
+		// get claims of the token
+		claims := parsedClaims.Claims.(jwt.MapClaims)
+		// convert the exp field first to a float because of interface of that is a float and then to an int
+		return int(claims["sub"].(float64)), nil
+	}
+
+	return 0,nil
+}
 
 
 // checks if a password and its hash is the same
