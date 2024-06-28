@@ -62,7 +62,7 @@ func (a *APIServer) SayHello(w http.ResponseWriter , r *http.Request) {
 
 func (a *APIServer) GetUserByUsernameHandler(w http.ResponseWriter , r *http.Request) {
 	username := mux.Vars(r)["username"]
-	user , err := a.DB.GetUserByUsernameDB(username)
+	user , _ , err := a.DB.GetUserByUsernameDB(username)
 
 	if err != nil {
 		ErrorGenerator(w, err)
@@ -112,12 +112,12 @@ func (a *APIServer) CreateUserHandler(w http.ResponseWriter , r *http.Request) {
 
 
 func (a *APIServer) LoginHandler(w http.ResponseWriter , r *http.Request) {
-	user := &LoginRequest{}
+	user := &UserRequest{}
 
 	json.NewDecoder(r.Body).Decode(user)
 
 	// validate fields user enters
-	validateErr := ValidateUserPayload(user.Username, user.Passwrod)
+	validateErr := ValidateUserPayload(user.Username, user.Password)
 
 	if validateErr != nil {
 		ErrorGenerator(w , validateErr)
@@ -125,7 +125,7 @@ func (a *APIServer) LoginHandler(w http.ResponseWriter , r *http.Request) {
 	}
 
 	// check if user with entered username exists
-	userExists, notFoundErr := a.DB.GetUserByUsernameDB(user.Username)
+	userExists, userPassword ,notFoundErr := a.DB.GetUserByUsernameDB(user.Username)
 
 	if notFoundErr != nil {
 		ErrorGenerator(w, notFoundErr)
@@ -133,7 +133,7 @@ func (a *APIServer) LoginHandler(w http.ResponseWriter , r *http.Request) {
 	}
 
 	// check if entered password is valid for the user
-	passErr := IsPasswordValid(userExists.Password,user.Passwrod)
+	passErr := IsPasswordValid(userPassword,user.Password)
 
 	if passErr != nil {
 		ErrorGenerator(w , passErr)
@@ -221,7 +221,7 @@ func (a *APIServer) CreateUrlHandler(w http.ResponseWriter , r *http.Request) {
 
 	userCreden , tokenErr := VerifyToken(authToken , true)
 
-	userExist , usrErr := a.DB.GetUserByUsernameDB(userCreden.Username)
+	userExist , _ , usrErr := a.DB.GetUserByUsernameDB(userCreden.Username)
 
 
 	if usrErr != nil {
