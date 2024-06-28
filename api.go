@@ -25,12 +25,22 @@ func NewApiServer(addr string, db Storage) *APIServer {
 
 func (a *APIServer) Run() error {
 	router := mux.NewRouter()
-
+	// router.Use(CheckIfUserLoggedin)
 	subRouter := router.PathPrefix("/api/v1").Subrouter()
-
+	subRouter.Use(CheckIfUserLoggedin)
+	
+	// test route 
 	subRouter.HandleFunc("/hello" , a.SayHello).Methods("GET")
+	
+	// name specified here can determined in middleware for running it if this route is protected
+	subRouter.HandleFunc("/url", a.CreateUrlHandler).Methods("POST").Name("middleware:CheckIfUserLoggedin")
+	
+	// a diffrent route for redirecting users to the actual url
+	router.HandleFunc("/urls/{uuid}" , a.GetUrlHandler).Methods("GET")
+	
+	// users routes
 	subRouter.HandleFunc("/user", a.CreateUserHandler).Methods("POST")
-	subRouter.HandleFunc("/user/{username}", a.GetUserByUsernameHandler).Methods("GET")
+	subRouter.HandleFunc("/users/{username}", a.GetUserByUsernameHandler).Methods("GET")
 	subRouter.HandleFunc("/user/login" , a.LoginHandler).Methods("POST")
 	subRouter.HandleFunc("/user/login/refresh" , a.RefershTokenHandler).Methods("POST")
 	
@@ -107,7 +117,7 @@ func (a *APIServer) LoginHandler(w http.ResponseWriter , r *http.Request) {
 	json.NewDecoder(r.Body).Decode(user)
 
 	// validate fields user enters
-	validateErr := ValidatePayload(user.Username, user.Passwrod)
+	validateErr := ValidateUserPayload(user.Username, user.Passwrod)
 
 	if validateErr != nil {
 		ErrorGenerator(w , validateErr)
@@ -161,14 +171,14 @@ func (a *APIServer) RefershTokenHandler(w http.ResponseWriter , r *http.Request)
 		return
 	}
 	// verfy provided token
-	userId , err := VerifyToken(refreshRequest.Refresh,true)
+	userCreden , err := VerifyToken(refreshRequest.Refresh,true)
 
 	if err != nil {
 		ErrorGenerator(w , err)
 		return
 	}
 	// get user by its id
-	user , usrEr := a.DB.GetUserByIDDB(userId)
+	user , usrEr := a.DB.GetUserByIDDB(userCreden.UserId)
 
 	// if user not found
 	if usrEr != nil {
@@ -200,5 +210,75 @@ func (a *APIServer) RefershTokenHandler(w http.ResponseWriter , r *http.Request)
 	JsonGenerator(w,http.StatusOK , token)
 	
 }
+
+
+
+func (a *APIServer) CreateUrlHandler(w http.ResponseWriter , r *http.Request) {
+	UrlRequest :=  &CreateUrlRequest{}
+	// cleaned token from  middleware
+	authToken := r.Header.Get("Authorization")
+
+
+	userCreden , tokenErr := VerifyToken(authToken , true)
+
+	userExist , usrErr := a.DB.GetUserByUsernameDB(userCreden.Username)
+
+
+	if usrErr != nil {
+		ErrorGenerator(w , usrErr)
+		return
+	}
+
+	// check if token is set
+	if tokenErr != nil {
+		ErrorGenerator(w , tokenErr)
+		return
+	}
+
+
+	json.NewDecoder(r.Body).Decode(UrlRequest)
+
+
+	validateErr := ValidateUrlPayload(UrlRequest)
+
+	if validateErr != nil {
+		ErrorGenerator(w , validateErr)
+		return
+	}
+
+
+	urlInstance := UrlRequest.CreateUrl(userExist.ID)
+
+	createdUrl, urlErr := a.DB.CreateUrlDB(urlInstance)
+
+	if urlErr != nil {
+		ErrorGenerator(w , urlErr)
+		return
+	}
+
+	JsonGenerator(w , http.StatusCreated , createdUrl)
+
+}
+
+
+func (a *APIServer) GetUrlHandler(w http.ResponseWriter , r *http.Request) {
+	PATH_PREFIX := LoadEnvVariable("W_ADDR")
+	uuid := mux.Vars(r)["uuid"]
+
+	// gets the url by its uuid from database
+	url , err := a.DB.GetUrlByShortUrl(PATH_PREFIX+uuid)
+
+	if err != nil {
+		ErrorGenerator(w , err)
+		return
+	}
+
+
+	JsonGenerator(w , http.StatusFound , url)
+}
+
+
+
+
 
 
