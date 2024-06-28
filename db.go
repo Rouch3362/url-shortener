@@ -12,12 +12,21 @@ import (
 
 
 type DBCommands interface {
+	// user commands
 	CreateUserDB(*User) (*User , error)
 	GetUserByUsernameDB(string) (*User , *Error)
 	GetUserByIDDB(int) (*User , *Error)
+	// delete user
+	// update user
+
+	// refresh token commands
 	CreateRefreshTokenDB() (string , error)
 	DeleteRefreshTokenDB() error
 	GetRefreshTokenDB(string) *Error
+	
+	// url commands
+	CreateUrlDB() (string , *Error)
+	GetUrlByShortUrl(string) (*Url , *Error)
 }
 
 
@@ -176,6 +185,7 @@ func (s *Storage) GetUserByIDDB(id int) (*User , *Error) {
 	
 	user := User{}
 
+	// insert each of columns in the userInstance
 	err := s.DB.QueryRow(query , id).Scan(&user.ID , &user.Username , &user.Password , &user.CreatedAt)
 
 	if err == sql.ErrNoRows {
@@ -191,12 +201,17 @@ func (s *Storage) GetUserByIDDB(id int) (*User , *Error) {
 func (s *Storage) CreateUserDB(user *UserRequest) (*User , *Error) {
 	// we use returning for insert because postgres by default will not return columns in insert command so we use it for fetching user and sending response to request source
 	query := `INSERT INTO users (username , password, created_at) VALUES (
-		$1,$2,$3) RETURNING id`
+		$1,$2,$3) RETURNING *`
 		
-	// an empty instance for user id
-	var id int
+	// an empty instance for user
+	foundedUser := User{}
 	// the only column it returns is id 
-	err := s.DB.QueryRow(query , user.Username , user.Password , user.CreatedAt).Scan(&id)
+	err := s.DB.QueryRow(query , user.Username , user.Password , user.CreatedAt).Scan(
+		&foundedUser.ID,
+		&foundedUser.Username,
+		&foundedUser.Password,
+		&foundedUser.CreatedAt,
+	)
 
 
 	if err != nil && strings.Contains(err.Error(),"duplicate") {
@@ -210,12 +225,48 @@ func (s *Storage) CreateUserDB(user *UserRequest) (*User , *Error) {
 		log.Fatal(err)
 	}
 	
-	// fetching user by username
-	foundedUser , findingErr := s.GetUserByIDDB(id)
 
-	if findingErr != nil {
-		return nil , findingErr
+	return &foundedUser, nil
+}
+
+
+func (s *Storage) CreateUrlDB(url *Url) (*Url,*Error) {
+	query := `INSERT INTO urls (user_id , old_url , new_url , created_at) VALUES (
+		$1 , $2 , $3 , $4) RETURNING *`
+
+	// creating instance for filling the returen results from insert command
+	createdUrl := Url{}
+	err := s.DB.QueryRow(query , url.User , url.OldUrl, url.NewUrl, url.CreatedAt).Scan(
+		&createdUrl.ID,
+		&createdUrl.User,
+		&createdUrl.OldUrl,
+		&createdUrl.NewUrl,
+		&createdUrl.CreatedAt,
+	)
+
+	if err != nil {
+		log.Fatal(err)
 	}
-	// we don't use pointer in this code and above error, because the GetUserByUsernameDB already returns pointer for user
-	return foundedUser, nil
+
+	return &createdUrl, nil
+}
+
+
+func (s *Storage) GetUrlByShortUrl(shortUrl string) (*Url , *Error) {
+	query := `SELECT * FROM urls WHERE new_url=$1`
+
+	url := Url{}
+	
+	err := s.DB.QueryRow(query , shortUrl).Scan(&url.ID , &url.User , &url.OldUrl , &url.NewUrl , &url.CreatedAt)
+
+	fmt.Println(shortUrl)
+
+	if err == sql.ErrNoRows {
+		return nil, &Error{
+			Message: "url not found.",
+			Code: http.StatusNotFound,
+		}
+	}
+
+	return &url,nil
 }
