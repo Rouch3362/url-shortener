@@ -4,10 +4,10 @@ import (
 	"database/sql"
 	"fmt"
 	"strings"
+	"time"
 
 	"log"
 	"net/http"
-
 )
 
 
@@ -15,6 +15,9 @@ type DBCommands interface {
 	CreateUserDB(*User) (*User , error)
 	GetUserByUsernameDB(string) (*User , *Error)
 	GetUserByIDDB(int) (*User , *Error)
+	CreateRefreshTokenDB() (string , error)
+	DeleteRefreshTokenDB() error
+	GetRefreshTokenDB(string) *Error
 }
 
 
@@ -51,7 +54,12 @@ func (s *Storage) Init() error{
 		return err
 	}
 	err  = s.CreateUrlsTable()
-	
+	if err != nil {
+		return err
+	}
+
+	err = s.CreateJwtTable()
+
 	return err
 	
 }
@@ -87,6 +95,61 @@ func (s *Storage) CreateUrlsTable() error {
 	return err
 }
 
+func (s *Storage) CreateJwtTable() error {
+	query := `CREATE TABLE IF NOT EXISTS token (
+		id 			SERIAL PRIMARY KEY UNIQUE,
+		user_id 	INT REFERENCES users NOT NULL,
+		refresh		TEXT NOT NULL,
+		created_at	timestamp NOT NULL
+	)`
+
+	_ ,err := s.DB.Query(query)
+
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// simply just creates a row in database for tokens that provided
+func (s *Storage) CreateRefreshTokenDB(userId int , token string) error {
+	query := `INSERT INTO token (user_id , refresh , created_at) VALUES (
+		$1 , $2 , $3
+	)` 
+
+
+	_,err := s.DB.Exec(query , userId, token ,time.Now().UTC())
+
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+
+func (s *Storage) DeleteRefreshTokenDB(token string) *Error {
+	query := `DELETE FROM token WHERE refresh=$1`
+
+	
+	res ,err := s.DB.Exec(query , token)
+	
+	if err != nil {
+		log.Fatal(err)
+	} 
+	// checks if a row deleted or not and if not returns and error that means token already used
+	if count , err := res.RowsAffected(); err == nil && count < 1 {
+		if err != nil {
+			log.Fatal(err)
+		}
+		return &Error{
+			Message: "token is not valid any more(black listed).",
+			Code: http.StatusUnauthorized,
+		}
+	}
+	return nil
+}
 
 
 func (s *Storage) GetUserByUsernameDB(username string) (*User , *Error) {
