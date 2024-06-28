@@ -161,32 +161,33 @@ func (s *Storage) DeleteRefreshTokenDB(token string) *Error {
 }
 
 
-func (s *Storage) GetUserByUsernameDB(username string) (*User , *Error) {
+func (s *Storage) GetUserByUsernameDB(username string) (*UserResponse, string , *Error) {
 	query := "SELECT * FROM users WHERE username=$1"
 
 	// created an instance for filling it with result from database
-	user := User{}
-
+	user := UserResponse{}
+	var userPass string 
 	// QueryRow returns only one row and if we use scan after it it will return an error or nil
 	// scan accepts destination for returned columns from database. in this case we didn't use RETURNING in postgres so it will return all columns
-	err := s.DB.QueryRow(query , username).Scan(&user.ID , &user.Username , &user.Password , &user.CreatedAt)
-
+	err := s.DB.QueryRow(query , username).Scan(&user.ID , &user.Username, &userPass , &user.CreatedAt)
 	// this will occure when no result founded
 	if err == sql.ErrNoRows {
-		return nil, &Error{Message: fmt.Sprintf("user with username: %s not found", username) , Code: http.StatusNotFound}
+		return nil,"", &Error{Message: fmt.Sprintf("user with username: %s not found", username) , Code: http.StatusNotFound}
+	} else if err != nil {
+		log.Fatal(err)
 	}
 
-	return &user , nil
+	return &user, userPass , nil
 }
 
 
-func (s *Storage) GetUserByIDDB(id int) (*User , *Error) {
-	query := "SELECT * FROM users WHERE id=$1"
+func (s *Storage) GetUserByIDDB(id int) (*UserResponse , *Error) {
+	query := "SELECT id,username,created_at FROM users WHERE id=$1"
 	
-	user := User{}
-
+	user := UserResponse{}
+	
 	// insert each of columns in the userInstance
-	err := s.DB.QueryRow(query , id).Scan(&user.ID , &user.Username , &user.Password , &user.CreatedAt)
+	err := s.DB.QueryRow(query , id).Scan(&user.ID , &user.Username , &user.CreatedAt)
 
 	if err == sql.ErrNoRows {
 		return nil, &Error{
@@ -198,24 +199,24 @@ func (s *Storage) GetUserByIDDB(id int) (*User , *Error) {
 	return &user , nil
 }
 
-func (s *Storage) CreateUserDB(user *UserRequest) (*User , *Error) {
+func (s *Storage) CreateUserDB(user *User) (*UserResponse , *Error) {
 	// we use returning for insert because postgres by default will not return columns in insert command so we use it for fetching user and sending response to request source
 	query := `INSERT INTO users (username , password, created_at) VALUES (
-		$1,$2,$3) RETURNING *`
+		$1,$2,$3) RETURNING id,username,created_at`
 		
 	// an empty instance for user
-	foundedUser := User{}
+	foundedUser := UserResponse{}
+
 	// the only column it returns is id 
 	err := s.DB.QueryRow(query , user.Username , user.Password , user.CreatedAt).Scan(
 		&foundedUser.ID,
 		&foundedUser.Username,
-		&foundedUser.Password,
 		&foundedUser.CreatedAt,
 	)
 
 
 	if err != nil && strings.Contains(err.Error(),"duplicate") {
-		return nil , &Error{
+		return nil, &Error{
 			Message: fmt.Sprintf("user with username: %s already exists." , user.Username),
 			Code: http.StatusConflict,
 		}
@@ -252,21 +253,25 @@ func (s *Storage) CreateUrlDB(url *Url) (*Url,*Error) {
 }
 
 
-func (s *Storage) GetUrlByShortUrl(shortUrl string) (*Url , *Error) {
-	query := `SELECT * FROM urls WHERE new_url=$1`
+func (s *Storage) GetUrlByShortUrl(shortUrl string) (*UrlReponse , *Error) {
+	query := `SELECT urls.id,urls.user_id,urls.old_url,urls.new_url,urls.created_at,users.id,users.username,users.created_at FROM urls  
+			  JOIN users ON urls.user_id = users.id WHERE new_url=$1`
 
-	url := Url{}
+	url := UrlReponse{}
 	
-	err := s.DB.QueryRow(query , shortUrl).Scan(&url.ID , &url.User , &url.OldUrl , &url.NewUrl , &url.CreatedAt)
+	err := s.DB.QueryRow(query , shortUrl).Scan(&url.ID, &url.User.ID , &url.OldUrl , &url.NewUrl, &url.CreatedAt , &url.User.ID, &url.User.Username, &url.User.CreatedAt)
 
-	fmt.Println(shortUrl)
+
 
 	if err == sql.ErrNoRows {
 		return nil, &Error{
 			Message: "url not found.",
 			Code: http.StatusNotFound,
 		}
+	} else if err != nil{
+		log.Fatal(err)
 	}
+
 
 	return &url,nil
 }
