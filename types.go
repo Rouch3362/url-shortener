@@ -31,9 +31,15 @@ type UserRequest struct {
 	CreatedAt time.Time	`json:"createdAt" db:"created_at"`
 }
 
+// for showing users their tokens
 type JwtToken struct {
-	Access 	string 	`json:"access" db:"access"`
-	// Refresh	string	`json:"refresh" db:"refresh"`
+	Access 	string 	`json:"access"`
+	Refresh	string	`json:"refresh" db:"token"`
+}
+
+// type for refreshing expired tokens
+type RefershTokenRequest struct {
+	Refresh string	`json:"refresh" db:"token"`
 }
 
 type LoginRequest struct {
