@@ -4,6 +4,7 @@ import (
 	"log"
 	"time"
 
+	"github.com/lithammer/shortuuid/v3"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -18,13 +19,14 @@ func (e *Error) Error() string {
 	return e.Message
 }
 
+// a type for user response
 type User struct {
 	ID        int    	`json:"id" db:"id"`
 	Username  string 	`json:"username" db:"username"`
 	Password  string 	`json:"password" db:"password"`
 	CreatedAt time.Time	`json:"createdAt" db:"created_at"`
 }
-
+// a struct for creating new user
 type UserRequest struct {
 	Username  string 	`json:"username" db:"username"`
 	Password  string 	`json:"password" db:"password"`
@@ -42,6 +44,26 @@ type RefershTokenRequest struct {
 	Refresh string	`json:"refresh" db:"token"`
 }
 
+// for filling when using verify token
+type VerifyTokenResult struct {
+	UserId 		int	
+	Username 	string
+}
+
+// a struct for request to create new url
+type CreateUrlRequest struct {
+	Url string	`json:"url"`
+}
+// a struct for url response 
+type Url struct {
+	ID 			int 		`json:"id" db:"id"`
+	User 		int			`json:"user" db:"user_id"`
+	OldUrl 		string		`json:"oldUrl" db:"old_url"`
+	NewUrl 		string		`json:"newUrl" db:"new_url"`
+	CreatedAt	time.Time	`json:"createdAt" db:"created_at"`
+}
+
+// a struct for request to login
 type LoginRequest struct {
 	Username string 	`json:"username" db:"username"`
 	Passwrod string		`json:"password" db:"password"`
@@ -49,7 +71,7 @@ type LoginRequest struct {
 
 // a method for creating an instancee of user before saving it to database
 func (u *UserRequest) CreateUser() (*UserRequest, *Error) {
-	validateErr := ValidatePayload(u.Username , u.Password)
+	validateErr := ValidateUserPayload(u.Username , u.Password)
 
 	if validateErr != nil {
 		return nil,validateErr
@@ -68,4 +90,21 @@ func (u *UserRequest) CreateUser() (*UserRequest, *Error) {
 	}
 
 	return user , nil
+}
+
+
+func (u *CreateUrlRequest) CreateUrl(userId int) *Url {
+	// uses path prefix to add domain of api to uuid
+	PATH_PREFIX := LoadEnvVariable("W_ADDR")
+
+	// generating a uuid
+	uuid := shortuuid.New()
+
+	// create an instance for url
+	return &Url{
+		User: userId,
+		OldUrl: u.Url,
+		NewUrl: PATH_PREFIX+uuid,
+		CreatedAt: time.Now().UTC(),
+	}
 }
