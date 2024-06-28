@@ -30,6 +30,10 @@ type User struct {
 type UserRequest struct {
 	Username  string 	`json:"username" db:"username"`
 	Password  string 	`json:"password" db:"password"`
+}
+type UserResponse struct {
+	ID        int    	`json:"id" db:"id"`
+	Username  string 	`json:"username" db:"username"`
 	CreatedAt time.Time	`json:"createdAt" db:"created_at"`
 }
 
@@ -62,15 +66,18 @@ type Url struct {
 	NewUrl 		string		`json:"newUrl" db:"new_url"`
 	CreatedAt	time.Time	`json:"createdAt" db:"created_at"`
 }
-
-// a struct for request to login
-type LoginRequest struct {
-	Username string 	`json:"username" db:"username"`
-	Passwrod string		`json:"password" db:"password"`
+// a struct for nested data from database
+type UrlReponse struct {
+	ID 			int 			`json:"id" db:"id"`
+	User 		UserResponse	`json:"user" db:"user_id"`
+	OldUrl 		string			`json:"oldUrl" db:"old_url"`
+	NewUrl 		string			`json:"newUrl" db:"new_url"`
+	CreatedAt	time.Time		`json:"createdAt" db:"created_at"`
 }
 
+
 // a method for creating an instancee of user before saving it to database
-func (u *UserRequest) CreateUser() (*UserRequest, *Error) {
+func (u *UserRequest) CreateUser() (*User, *Error) {
 	validateErr := ValidateUserPayload(u.Username , u.Password)
 
 	if validateErr != nil {
@@ -83,7 +90,7 @@ func (u *UserRequest) CreateUser() (*UserRequest, *Error) {
 	if hashErr != nil {
 		log.Fatal(hashErr)
 	}
-	user := &UserRequest{
+	user := &User{
 		Username: u.Username, 
 		Password: string(hashPassword),
 		CreatedAt: time.Now().UTC(),
