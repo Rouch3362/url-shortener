@@ -85,7 +85,7 @@ func JsonGenerator(w http.ResponseWriter , statusCode int , value any) {
 }
 
 
-func CreateJWT(user *User) (string , error) {
+func CreateJWT(user *UserResponse) (string , error) {
 	// claims (fields) we want in our jwt token
 	claims := jwt.MapClaims{
 		"username": user.Username,
@@ -160,7 +160,7 @@ func VerifyToken(token string, wantUserCreden bool /* only for returning user id
 		// check if sub field is in claims
 		if val, ok := claims["sub"]; ok {
 			// convert the userid field first to a float because of interface of that is a float and then to an int
-			verifyTokenRes.UserId = int(val.(int))
+			verifyTokenRes.UserId = int(val.(float64))
 			return &verifyTokenRes,nil
 		} else { // if token does not have sub field so it has username field
 			verifyTokenRes.Username = string(claims["username"].(string))
