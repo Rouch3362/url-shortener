@@ -32,6 +32,7 @@ func (a *APIServer) Run() error {
 	subRouter.HandleFunc("/user", a.CreateUserHandler).Methods("POST")
 	subRouter.HandleFunc("/user/{username}", a.GetUserByUsernameHandler).Methods("GET")
 	subRouter.HandleFunc("/user/login" , a.LoginHandler).Methods("POST")
+	subRouter.HandleFunc("/user/login/refresh" , a.RefershTokenHandler).Methods("POST")
 	
 	err := http.ListenAndServe(a.Addr , router)
 
@@ -130,17 +131,74 @@ func (a *APIServer) LoginHandler(w http.ResponseWriter , r *http.Request) {
 	}
 
 	// creating jwt token
-	tokenString , jwtErr := CreateJWT(user)
-
-	if jwtErr != nil {
-		log.Fatal(jwtErr)
+	tokenString , jwtErr := CreateJWT(userExists)
+	refreshString, refreshErr := CreateRefreshToken(userExists.ID)
+	// create one row in db for refresh token
+	if err := a.DB.CreateRefreshTokenDB(userExists.ID , refreshString); err != nil {
+		log.Fatal(err)
 	}
-
-	token := &JwtToken{Access: tokenString}
+	if jwtErr != nil || refreshErr != nil{
+		log.Fatal(jwtErr , refreshErr)
+	}
+	// creates an instance of jwt's results
+	token := &JwtToken{Access: tokenString, Refresh: refreshString}
 
 	JsonGenerator(w , http.StatusOK , token)
 
 }
 
+
+func (a *APIServer) RefershTokenHandler(w http.ResponseWriter , r *http.Request) {
+	// an instance for RefreshRequest for decoding the values of request
+	refreshRequest := &RefershTokenRequest{}
+	
+
+	json.NewDecoder(r.Body).Decode(refreshRequest)
+
+	// if refresh field was empty
+	if refreshRequest.Refresh == "" {
+		ErrorGenerator(w , &Error{"refresh field not provided." , http.StatusBadRequest})
+		return
+	}
+	// verfy provided token
+	userId , err := VerifyToken(refreshRequest.Refresh,true)
+
+	if err != nil {
+		ErrorGenerator(w , err)
+		return
+	}
+	// get user by its id
+	user , usrEr := a.DB.GetUserByIDDB(userId)
+
+	// if user not found
+	if usrEr != nil {
+		ErrorGenerator(w , usrEr)
+		return
+	}
+	// generating new tokens
+	accessTokenString , accErr := CreateJWT(user)
+	refreshTokenString, refErr := CreateRefreshToken(user.ID)
+
+	if accErr != nil || refErr != nil {
+		log.Fatal(accErr , refErr)
+	}
+	// deleted the used refresh token
+	refDelErr := a.DB.DeleteRefreshTokenDB(refreshRequest.Refresh)
+	
+	// if row is black listed or once used return an error
+	if refDelErr != nil {
+		ErrorGenerator(w , refDelErr)
+		return
+	}
+	// creates an instance for returning new tokens to user
+	token := &JwtToken{Access: accessTokenString , Refresh: refreshTokenString}
+	// creates new row to database for new token
+	if err := a.DB.CreateRefreshTokenDB(user.ID,refreshTokenString); err != nil {
+		log.Fatal(err)
+	}
+
+	JsonGenerator(w,http.StatusOK , token)
+	
+}
 
 
