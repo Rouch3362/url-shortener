@@ -143,7 +143,7 @@ func VerifyToken(token string, wantUserCreden bool /* only for returning user id
 
 	if err != nil {
 		return nil, &Error{
-			Message: err.Error(),
+			Message: "Token is not valid or expired.",
 			Code: http.StatusUnauthorized,
 		}
 	}
