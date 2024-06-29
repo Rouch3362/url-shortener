@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"log"
 	"net/http"
 
@@ -41,9 +42,11 @@ func (a *APIServer) Run() error {
 	// users routes
 	subRouter.HandleFunc("/user", a.CreateUserHandler).Methods("POST")
 	subRouter.HandleFunc("/users/{username}", a.GetUserByUsernameHandler).Methods("GET")
+	subRouter.HandleFunc("/users/{username}", a.DeleteUserHandler).Methods("DELETE").Name("middleware:CheckIfUserLoggedin")
 	subRouter.HandleFunc("/users/{username}/urls", a.GetUsersUrlHandler).Methods("GET")
 	subRouter.HandleFunc("/user/login" , a.LoginHandler).Methods("POST")
 	subRouter.HandleFunc("/user/login/refresh" , a.RefreshTokenHandler).Methods("POST")
+	
 	
 	err := http.ListenAndServe(a.Addr , router)
 
@@ -111,6 +114,40 @@ func (a *APIServer) CreateUserHandler(w http.ResponseWriter , r *http.Request) {
 	JsonGenerator(w , http.StatusCreated , createdUser)
 }	
 
+func (a *APIServer) DeleteUserHandler(w http.ResponseWriter , r *http.Request) {
+	username := mux.Vars(r)["username"]
+
+
+	authToken := r.Header.Get("Authorization")
+
+	userCreden , tokenErr := VerifyToken(authToken , true)
+
+	if tokenErr != nil {
+		ErrorGenerator(w , tokenErr)
+		return
+	}
+
+	// if the token provided was not access token
+	if userCreden.Username == "" {
+		ErrorGenerator(w , &Error{"for deleting user you must enter access token not refresh token", http.StatusBadRequest})
+		return
+	}
+	// checks if user that request this operation is the same user of deleting user
+	if userCreden.Username != username && userCreden.UserId == 0 {
+		ErrorGenerator(w , &Error{"Access Denied." , http.StatusForbidden})
+		return
+	}
+
+	_, err := a.DB.DelteUserDB(username)
+
+
+	if err != nil {
+		ErrorGenerator(w , err)
+		return
+	}
+
+	JsonGenerator(w , http.StatusOK, struct{Message string}{fmt.Sprintf("%s user deleted successfully.",username)})
+}
 
 func (a *APIServer) LoginHandler(w http.ResponseWriter , r *http.Request) {
 	user := &UserRequest{}
@@ -186,7 +223,7 @@ func (a *APIServer) RefreshTokenHandler(w http.ResponseWriter , r *http.Request)
 		/* checks if user credential returned from verify token is
 		a refresh token credential or a access token if the credentials is 
 		for access token this returns an err */
-		
+
 		if userCreden.Username != "" {
 			ErrorGenerator(w , &Error{
 				"for refreshing token you must enter the refresh token not access token",
