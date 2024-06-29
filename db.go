@@ -17,7 +17,7 @@ type DBCommands interface {
 	GetUserByUsernameDB(string) (*UserResponse , *Error)
 	GetUserByIDDB(int) (*UserResponse , *Error)
 	GetUserUrlsDB(string) (*UserUrlsResponse , *Error)
-	// delete user
+	DelteUserDB(string) (string , *Error)
 	// update user
 
 	// refresh token commands
@@ -94,7 +94,7 @@ func (s *Storage) CreateUsersTable() error {
 func (s *Storage) CreateUrlsTable() error {
 	query := `CREATE TABLE IF NOT EXISTS urls (
 		id			SERIAL PRIMARY KEY UNIQUE,
-		user_id		INT REFERENCES users NOT NULL,
+		user_id		INT REFERENCES users ON DELETE CASCADE NOT NULL,
 		old_url		TEXT		 NOT NULL,
 		new_url 	VARCHAR(200) NOT NULL,
 		clicks		INT			 NOT NULL,
@@ -110,7 +110,7 @@ func (s *Storage) CreateUrlsTable() error {
 func (s *Storage) CreateJwtTable() error {
 	query := `CREATE TABLE IF NOT EXISTS token (
 		id 			SERIAL PRIMARY KEY UNIQUE,
-		user_id 	INT REFERENCES users NOT NULL,
+		user_id 	INT REFERENCES users ON DELETE CASCADE NOT NULL UNIQUE,
 		refresh		TEXT NOT NULL,
 		created_at	timestamp NOT NULL
 	)`
@@ -124,8 +124,19 @@ func (s *Storage) CreateJwtTable() error {
 	return nil
 }
 
+// deletes token if exists by a user id
+func (s *Storage) DeletePreviousToken(userId int)  {
+	query := `DELETE FROM token WHERE user_id=$1 RETURNING refresh`
+
+	var refresh string
+
+	s.DB.QueryRow(query,userId).Scan(&refresh)
+}
+
 // simply just creates a row in database for tokens that provided
 func (s *Storage) CreateRefreshTokenDB(userId int , token string) error {
+	// first deletes token if a token already exist in database and not expired
+	s.DeletePreviousToken(userId)
 	query := `INSERT INTO token (user_id , refresh , created_at) VALUES (
 		$1 , $2 , $3
 	)` 
@@ -268,6 +279,26 @@ func (s *Storage) GetUserUrlsDB(username string) (*UserUrlsResponse , *Error) {
 	return &response,nil
 }
 
+
+func (s *Storage) DelteUserDB(username string) (*UserResponse, *Error) {
+	query := `DELETE FROM users WHERE username=$1 RETURNING id,username,created_at`
+	
+	user := UserResponse{}
+
+	err := s.DB.QueryRow(query , username).Scan(&user.ID,&user.Username,&user.CreatedAt)
+
+	if err == sql.ErrNoRows {
+		return nil, &Error{
+			Message: "user not found.",
+			Code: http.StatusNotFound,
+		}
+	} else if err != nil {
+		log.Fatal(err)
+	}
+
+	return &user , nil
+	
+}
 
 func (s *Storage) CreateUserDB(user *User) (*UserResponse , *Error) {
 	// we use returning for insert because postgres by default will not return columns in insert command so we use it for fetching user and sending response to request source
