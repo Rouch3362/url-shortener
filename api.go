@@ -41,8 +41,9 @@ func (a *APIServer) Run() error {
 	// users routes
 	subRouter.HandleFunc("/user", a.CreateUserHandler).Methods("POST")
 	subRouter.HandleFunc("/users/{username}", a.GetUserByUsernameHandler).Methods("GET")
+	subRouter.HandleFunc("/users/{username}/urls", a.GetUsersUrlHandler).Methods("GET")
 	subRouter.HandleFunc("/user/login" , a.LoginHandler).Methods("POST")
-	subRouter.HandleFunc("/user/login/refresh" , a.RefershTokenHandler).Methods("POST")
+	subRouter.HandleFunc("/user/login/refresh" , a.RefreshTokenHandler).Methods("POST")
 	
 	err := http.ListenAndServe(a.Addr , router)
 
@@ -158,7 +159,7 @@ func (a *APIServer) LoginHandler(w http.ResponseWriter , r *http.Request) {
 }
 
 
-func (a *APIServer) RefershTokenHandler(w http.ResponseWriter , r *http.Request) {
+func (a *APIServer) RefreshTokenHandler(w http.ResponseWriter , r *http.Request) {
 	// an instance for RefreshRequest for decoding the values of request
 	refreshRequest := &RefershTokenRequest{}
 	
@@ -182,6 +183,16 @@ func (a *APIServer) RefershTokenHandler(w http.ResponseWriter , r *http.Request)
 
 	// if user not found
 	if usrEr != nil {
+		/* checks if user credential returned from verify token is
+		a refresh token credential or a access token if the credentials is 
+		for access token this returns an err */
+		
+		if userCreden.Username != "" {
+			ErrorGenerator(w , &Error{
+				"for refreshing token you must enter the refresh token not access token",
+				http.StatusBadRequest })
+			return
+		}
 		ErrorGenerator(w , usrEr)
 		return
 	}
@@ -221,17 +232,17 @@ func (a *APIServer) CreateUrlHandler(w http.ResponseWriter , r *http.Request) {
 
 	userCreden , tokenErr := VerifyToken(authToken , true)
 
+	// check if token is set
+	if tokenErr != nil {
+		ErrorGenerator(w , tokenErr)
+		return
+	}
+
 	userExist , _ , usrErr := a.DB.GetUserByUsernameDB(userCreden.Username)
 
 
 	if usrErr != nil {
 		ErrorGenerator(w , usrErr)
-		return
-	}
-
-	// check if token is set
-	if tokenErr != nil {
-		ErrorGenerator(w , tokenErr)
 		return
 	}
 
@@ -261,6 +272,22 @@ func (a *APIServer) CreateUrlHandler(w http.ResponseWriter , r *http.Request) {
 }
 
 
+func (a *APIServer) GetUsersUrlHandler(w http.ResponseWriter , r *http.Request) {
+	
+	username := mux.Vars(r)["username"]
+
+	response , err := a.DB.GetUserUrlsDB(username)
+
+	if err != nil {
+		ErrorGenerator(w , err)
+		return
+	}
+
+	JsonGenerator(w,http.StatusOK,response)
+
+}
+
+
 func (a *APIServer) GetUrlHandler(w http.ResponseWriter , r *http.Request) {
 	PATH_PREFIX := LoadEnvVariable("W_ADDR")
 	uuid := mux.Vars(r)["uuid"]
@@ -273,6 +300,11 @@ func (a *APIServer) GetUrlHandler(w http.ResponseWriter , r *http.Request) {
 		return
 	}
 
+	// increase clicks by 1
+	a.DB.IncreaseClicksUrlDB(url.NewUrl)
+
+	// it will save on database but not shows the returned value after update in database because of less database calls its just a value showen to user 
+	url.Clicks += 1
 
 	JsonGenerator(w , http.StatusFound , url)
 }
