@@ -37,6 +37,21 @@ type UserResponse struct {
 	CreatedAt time.Time	`json:"createdAt" db:"created_at"`
 }
 
+type UserUrlsResponse struct {
+	ID        int    			`json:"id" db:"id"`
+	Username  string 			`json:"username" db:"username"`
+	Urls 	  []ShortedFormUrl  `json:"urls" db:"urls"`
+	CreatedAt time.Time			`json:"createdAt" db:"created_at"`
+}
+
+type ShortedFormUrl struct {
+	ID 			int 			`json:"id" db:"id"`
+	OldUrl 		string			`json:"oldUrl" db:"old_url"`
+	NewUrl 		string			`json:"newUrl" db:"new_url"`
+	Clicks		int				`json:"clicks" db:"clicks"`
+	CreatedAt	time.Time		`json:"createdAt" db:"created_at"`
+}
+
 // for showing users their tokens
 type JwtToken struct {
 	Access 	string 	`json:"access"`
@@ -64,6 +79,7 @@ type Url struct {
 	User 		int			`json:"user" db:"user_id"`
 	OldUrl 		string		`json:"oldUrl" db:"old_url"`
 	NewUrl 		string		`json:"newUrl" db:"new_url"`
+	Clicks		int				`json:"clicks" db:"clicks"`
 	CreatedAt	time.Time	`json:"createdAt" db:"created_at"`
 }
 // a struct for nested data from database
@@ -72,6 +88,7 @@ type UrlReponse struct {
 	User 		UserResponse	`json:"user" db:"user_id"`
 	OldUrl 		string			`json:"oldUrl" db:"old_url"`
 	NewUrl 		string			`json:"newUrl" db:"new_url"`
+	Clicks		int				`json:"clicks" db:"clicks"`
 	CreatedAt	time.Time		`json:"createdAt" db:"created_at"`
 }
 
@@ -112,6 +129,7 @@ func (u *CreateUrlRequest) CreateUrl(userId int) *Url {
 		User: userId,
 		OldUrl: u.Url,
 		NewUrl: PATH_PREFIX+uuid,
+		Clicks: 0,
 		CreatedAt: time.Now().UTC(),
 	}
 }
