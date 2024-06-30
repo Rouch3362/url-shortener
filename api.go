@@ -36,11 +36,12 @@ func (a *APIServer) Run() error {
 	// name specified here can determined in middleware for running it if this route is protected
 	subRouter.HandleFunc("/url", a.CreateUrlHandler).Methods("POST").Name("middleware:CheckIfUserLoggedin")
 	subRouter.HandleFunc("/url/{uuid}", a.DeleteUrl).Methods("DELETE").Name("middleware:CheckIfUserLoggedin")
+	subRouter.HandleFunc("/url/{uuid}", a.UpdateUrl).Methods("PATCH","PUT").Name("middleware:CheckIfUserLoggedin")
 	// a diffrent route for redirecting users to the actual url
 	router.HandleFunc("/urls/{uuid}" , a.GetUrlHandler).Methods("GET")
 	
 	// users routes
-	subRouter.HandleFunc("/user", a.CreateUserHandler).Methods("POST")
+	subRouter.HandleFunc("/user/register", a.CreateUserHandler).Methods("POST")
 	subRouter.HandleFunc("/users/{username}", a.GetUserByUsernameHandler).Methods("GET")
 	subRouter.HandleFunc("/users/{username}", a.DeleteUserHandler).Methods("DELETE").Name("middleware:CheckIfUserLoggedin")
 	subRouter.HandleFunc("/users/{username}/urls", a.GetUsersUrlHandler).Methods("GET")
@@ -346,7 +347,60 @@ func (a *APIServer) GetUrlHandler(w http.ResponseWriter , r *http.Request) {
 	JsonGenerator(w , http.StatusFound , url)
 }
 
+func (a *APIServer) UpdateUrl(w http.ResponseWriter , r *http.Request) {
+	uuid := mux.Vars(r)["uuid"]
 
+	authToken := r.Header.Get("Authorization")
+
+	userCreden , tokenErr := VerifyToken(authToken , true)
+
+	if tokenErr != nil {
+		ErrorGenerator(w , tokenErr)
+		return
+	}
+
+
+	// checks if access token provided not refresh token
+	if userCreden.UserId != 0 && userCreden.Username == "" {
+		ErrorGenerator(w , &Error{"you should use access token not refresh token.",http.StatusBadRequest})
+		return
+	}
+
+	// decode user payload to a go struct
+	urlRequest := &CreateUrlRequest{}
+
+	json.NewDecoder(r.Body).Decode(urlRequest)
+	// checks if url field is in payload
+	validateErr := ValidateUrlPayload(urlRequest)
+
+	if validateErr != nil {
+		ErrorGenerator(w , validateErr)
+		return
+	}
+
+	// load path prefix variable from env
+	PATH_PREFIX := LoadEnvVariable("W_ADDR")
+	// make url in accepted format
+	short_url 	:= PATH_PREFIX+uuid
+	// get users of that url and checks if url is exists
+	url,urlErr := a.DB.GetUrlByShortUrl(short_url)
+	// if url does not exist
+	if urlErr != nil {
+		ErrorGenerator(w , urlErr)
+		return
+	}
+	// checks if the user requested to update is the same user that created url
+	if url.User.Username != userCreden.Username {
+		ErrorGenerator(w , &Error{"Access Denied." , http.StatusForbidden})
+		return
+	}
+
+	
+	// updating url. at this situation we don't want the Error because we handled not found error in above codes.
+	response , _ := a.DB.UpdateUrlDB(urlRequest.Url,url.ID)
+	
+	JsonGenerator(w , http.StatusOK , response)
+}
 
 func (a *APIServer) DeleteUrl(w http.ResponseWriter , r *http.Request) {
 	uuid := mux.Vars(r)["uuid"]
@@ -387,7 +441,7 @@ func (a *APIServer) DeleteUrl(w http.ResponseWriter , r *http.Request) {
 
 	
 	// deleting url
-	a.DB.DeleteUrlDB(short_url)
+	a.DB.DeleteUrlDB(url.ID)
 	
 	JsonGenerator(w , http.StatusOK , struct{Message string}{fmt.Sprintf("%s Deleted successfully.", short_url)})
 }
