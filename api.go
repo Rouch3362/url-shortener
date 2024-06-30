@@ -43,6 +43,7 @@ func (a *APIServer) Run() error {
 	// users routes
 	subRouter.HandleFunc("/user/register", a.CreateUserHandler).Methods("POST")
 	subRouter.HandleFunc("/users/{username}", a.GetUserByUsernameHandler).Methods("GET")
+	subRouter.HandleFunc("/users/{username}", a.UpdateUserHandler).Methods("PUT" , "PATCH").Name("middleware:CheckIfUserLoggedin")
 	subRouter.HandleFunc("/users/{username}", a.DeleteUserHandler).Methods("DELETE").Name("middleware:CheckIfUserLoggedin")
 	subRouter.HandleFunc("/users/{username}/urls", a.GetUsersUrlHandler).Methods("GET")
 	subRouter.HandleFunc("/user/login" , a.LoginHandler).Methods("POST")
@@ -86,11 +87,16 @@ func (a *APIServer) CreateUserHandler(w http.ResponseWriter , r *http.Request) {
 	// creting an empty instance for accesing its method
 	user := &UserRequest{}
 
+	
+
 	// decode user payload to User struct
-	err := json.NewDecoder(r.Body).Decode(user)
+	json.NewDecoder(r.Body).Decode(user)
+
+	err := ValidateUserPayload(user.Username,user.Password)
 
 	if err != nil {
-		log.Fatal(err)
+		ErrorGenerator(w , err)
+		return
 	} 
 
 	// create a user and default values of createdAt field
@@ -121,7 +127,7 @@ func (a *APIServer) DeleteUserHandler(w http.ResponseWriter , r *http.Request) {
 
 	authToken := r.Header.Get("Authorization")
 
-	userCreden , tokenErr := VerifyToken(authToken , true)
+	userCreden , tokenErr := VerifyToken(authToken)
 
 	if tokenErr != nil {
 		ErrorGenerator(w , tokenErr)
@@ -130,16 +136,16 @@ func (a *APIServer) DeleteUserHandler(w http.ResponseWriter , r *http.Request) {
 
 	// if the token provided was not access token
 	if userCreden.Username == "" {
-		ErrorGenerator(w , &Error{"for deleting user you must enter access token not refresh token", http.StatusBadRequest})
+		ErrorGenerator(w , AccessTokenNeededError())
 		return
 	}
 	// checks if user that request this operation is the same user of deleting user
-	if userCreden.Username != username && userCreden.UserId == 0 {
-		ErrorGenerator(w , &Error{"Access Denied." , http.StatusForbidden})
+	if accErr := CheckIfIsAccessOrRefresh(userCreden.Type , true); accErr != nil {
+		ErrorGenerator(w , accErr)
 		return
 	}
 
-	_, err := a.DB.DelteUserDB(username)
+	_, err := a.DB.DeleteUserDB(username)
 
 
 	if err != nil {
@@ -180,8 +186,8 @@ func (a *APIServer) LoginHandler(w http.ResponseWriter , r *http.Request) {
 	}
 
 	// creating jwt token
-	tokenString , jwtErr := CreateJWT(userExists)
-	refreshString, refreshErr := CreateRefreshToken(userExists.ID)
+	tokenString , jwtErr := CreateJWT(userExists,false)
+	refreshString, refreshErr := CreateJWT(userExists,true)
 	// create one row in db for refresh token
 	if err := a.DB.CreateRefreshTokenDB(userExists.ID , refreshString); err != nil {
 		log.Fatal(err)
@@ -206,37 +212,35 @@ func (a *APIServer) RefreshTokenHandler(w http.ResponseWriter , r *http.Request)
 
 	// if refresh field was empty
 	if refreshRequest.Refresh == "" {
-		ErrorGenerator(w , &Error{"refresh field not provided." , http.StatusBadRequest})
+		ErrorGenerator(w , RequiredFieldsError([]string{"refresh"}))
 		return
 	}
-	// verfy provided token
-	userCreden , err := VerifyToken(refreshRequest.Refresh,true)
+	// verfy if provided token in payload
+	userCreden , err := VerifyToken(refreshRequest.Refresh)
 
 	if err != nil {
 		ErrorGenerator(w , err)
 		return
 	}
+
+
+	if refErrr := CheckIfIsAccessOrRefresh(userCreden.Type , false); refErrr != nil {
+		ErrorGenerator(w , refErrr)
+		return
+	}
+	
+
 	// get user by its id
 	user , usrEr := a.DB.GetUserByIDDB(userCreden.UserId)
 
 	// if user not found
 	if usrEr != nil {
-		/* checks if user credential returned from verify token is
-		a refresh token credential or a access token if the credentials is 
-		for access token this returns an err */
-
-		if userCreden.Username != "" {
-			ErrorGenerator(w , &Error{
-				"for refreshing token you must enter the refresh token not access token",
-				http.StatusBadRequest })
-			return
-		}
 		ErrorGenerator(w , usrEr)
 		return
 	}
 	// generating new tokens
-	accessTokenString , accErr := CreateJWT(user)
-	refreshTokenString, refErr := CreateRefreshToken(user.ID)
+	accessTokenString , accErr := CreateJWT(user,false)
+	refreshTokenString, refErr := CreateJWT(user,true)
 
 	if accErr != nil || refErr != nil {
 		log.Fatal(accErr , refErr)
@@ -268,11 +272,16 @@ func (a *APIServer) CreateUrlHandler(w http.ResponseWriter , r *http.Request) {
 	authToken := r.Header.Get("Authorization")
 
 
-	userCreden , tokenErr := VerifyToken(authToken , true)
+	userCreden , tokenErr := VerifyToken(authToken)
 
 	// check if token is set
 	if tokenErr != nil {
 		ErrorGenerator(w , tokenErr)
+		return
+	}
+
+	if accErr := CheckIfIsAccessOrRefresh(userCreden.Type , true); accErr != nil {
+		ErrorGenerator(w , accErr)
 		return
 	}
 
@@ -306,6 +315,60 @@ func (a *APIServer) CreateUrlHandler(w http.ResponseWriter , r *http.Request) {
 	}
 
 	JsonGenerator(w , http.StatusCreated , createdUrl)
+
+}
+
+
+func (a *APIServer) UpdateUserHandler(w http.ResponseWriter , r *http.Request) {
+	username := mux.Vars(r)["username"]
+
+	authToken := r.Header.Get("Authorization")
+
+	userCreden , tokenErr := VerifyToken(authToken)
+
+	if tokenErr != nil {
+		ErrorGenerator(w , tokenErr)
+		return
+	}
+
+	if accErr := CheckIfIsAccessOrRefresh(userCreden.Type , true); accErr != nil {
+		ErrorGenerator(w, accErr)
+		return
+	}
+
+	// check the actual user credential not those saved in token because after updating username the username in token wont't update since new token request
+	user, _, err := a.DB.GetUserByUsernameDB(username)
+
+	if err != nil {
+		ErrorGenerator(w , err)
+		return
+	}
+
+	if userCreden.UserId !=  user.ID{
+		ErrorGenerator(w , AccessDeniedError())
+		return
+	}
+
+	userPayload := &UserUpdateRequest{}
+
+	json.NewDecoder(r.Body).Decode(userPayload)
+
+
+	if userPayload.Username == "" {
+		ErrorGenerator(w, RequiredFieldsError([]string{"username"}))
+		return
+	}
+
+	// we don't want error value because we handled the not found error earlier
+	response, _ := a.DB.UpdateUserDB(userPayload.Username,username)
+	
+	if err != nil {
+		ErrorGenerator(w , err)
+		return
+	}
+
+
+	JsonGenerator(w,http.StatusOK,response)
 
 }
 
@@ -352,7 +415,7 @@ func (a *APIServer) UpdateUrl(w http.ResponseWriter , r *http.Request) {
 
 	authToken := r.Header.Get("Authorization")
 
-	userCreden , tokenErr := VerifyToken(authToken , true)
+	userCreden , tokenErr := VerifyToken(authToken)
 
 	if tokenErr != nil {
 		ErrorGenerator(w , tokenErr)
@@ -361,8 +424,8 @@ func (a *APIServer) UpdateUrl(w http.ResponseWriter , r *http.Request) {
 
 
 	// checks if access token provided not refresh token
-	if userCreden.UserId != 0 && userCreden.Username == "" {
-		ErrorGenerator(w , &Error{"you should use access token not refresh token.",http.StatusBadRequest})
+	if accErr := CheckIfIsAccessOrRefresh(userCreden.Type , true); accErr != nil {
+		ErrorGenerator(w , accErr)
 		return
 	}
 
@@ -390,7 +453,7 @@ func (a *APIServer) UpdateUrl(w http.ResponseWriter , r *http.Request) {
 		return
 	}
 	// checks if the user requested to update is the same user that created url
-	if url.User.Username != userCreden.Username {
+	if url.User.ID != userCreden.UserId {
 		ErrorGenerator(w , &Error{"Access Denied." , http.StatusForbidden})
 		return
 	}
@@ -407,7 +470,7 @@ func (a *APIServer) DeleteUrl(w http.ResponseWriter , r *http.Request) {
 	// token verification
 	authToken := r.Header.Get("Authorization")
 
-	userCreden , tokenErr := VerifyToken(authToken , true)
+	userCreden , tokenErr := VerifyToken(authToken)
 
 	if tokenErr != nil {
 		ErrorGenerator(w , tokenErr)
@@ -417,8 +480,8 @@ func (a *APIServer) DeleteUrl(w http.ResponseWriter , r *http.Request) {
 
 
 	// checks if access token provided not refresh token
-	if userCreden.UserId != 0 && userCreden.Username == "" {
-		ErrorGenerator(w , &Error{"you should use access token not refresh token.",http.StatusBadRequest})
+	if accErr := CheckIfIsAccessOrRefresh(userCreden.Type , true); accErr != nil {
+		ErrorGenerator(w , accErr)
 		return
 	}
 
@@ -434,8 +497,8 @@ func (a *APIServer) DeleteUrl(w http.ResponseWriter , r *http.Request) {
 		return
 	}
 	// checks if the user requested to delete is the same user that created url
-	if url.User.Username != userCreden.Username {
-		ErrorGenerator(w , &Error{"Access Denied." , http.StatusForbidden})
+	if url.User.ID != userCreden.UserId {
+		ErrorGenerator(w , AccessDeniedError())
 		return
 	}
 
