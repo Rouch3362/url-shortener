@@ -114,7 +114,7 @@ func CreateRefreshToken(userId int) (string , error) {
 	claims := jwt.MapClaims{
 		// user's ID for accessing user from database
 		"sub": userId,
-		"exp": time.Now().Add(time.Hour * 24).Unix(),
+		"exp": time.Now().Add(time.Hour * 48).Unix(),
 	}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256 , claims)
