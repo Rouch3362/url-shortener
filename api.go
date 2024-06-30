@@ -35,7 +35,7 @@ func (a *APIServer) Run() error {
 	
 	// name specified here can determined in middleware for running it if this route is protected
 	subRouter.HandleFunc("/url", a.CreateUrlHandler).Methods("POST").Name("middleware:CheckIfUserLoggedin")
-	
+	subRouter.HandleFunc("/url/{uuid}", a.DeleteUrl).Methods("DELETE").Name("middleware:CheckIfUserLoggedin")
 	// a diffrent route for redirecting users to the actual url
 	router.HandleFunc("/urls/{uuid}" , a.GetUrlHandler).Methods("GET")
 	
@@ -347,6 +347,50 @@ func (a *APIServer) GetUrlHandler(w http.ResponseWriter , r *http.Request) {
 }
 
 
+
+func (a *APIServer) DeleteUrl(w http.ResponseWriter , r *http.Request) {
+	uuid := mux.Vars(r)["uuid"]
+	// token verification
+	authToken := r.Header.Get("Authorization")
+
+	userCreden , tokenErr := VerifyToken(authToken , true)
+
+	if tokenErr != nil {
+		ErrorGenerator(w , tokenErr)
+		return
+	}
+	// ================================================
+
+
+	// checks if access token provided not refresh token
+	if userCreden.UserId != 0 && userCreden.Username == "" {
+		ErrorGenerator(w , &Error{"you should use access token not refresh token.",http.StatusBadRequest})
+		return
+	}
+
+	// load path prefix variable from env
+	PATH_PREFIX := LoadEnvVariable("W_ADDR")
+	// male url in accepted format
+	short_url 	:= PATH_PREFIX+uuid
+	// get users of that url and checks if url is exists
+	url,urlErr := a.DB.GetUrlByShortUrl(short_url)
+	// if url does not exist
+	if urlErr != nil {
+		ErrorGenerator(w , urlErr)
+		return
+	}
+	// checks if the user requested to delete is the same user that created url
+	if url.User.Username != userCreden.Username {
+		ErrorGenerator(w , &Error{"Access Denied." , http.StatusForbidden})
+		return
+	}
+
+	
+	// deleting url
+	a.DB.DeleteUrlDB(short_url)
+	
+	JsonGenerator(w , http.StatusOK , struct{Message string}{fmt.Sprintf("%s Deleted successfully.", short_url)})
+}
 
 
 
