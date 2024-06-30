@@ -17,8 +17,8 @@ type DBCommands interface {
 	GetUserByUsernameDB(string) (*UserResponse , *Error)
 	GetUserByIDDB(int) (*UserResponse , *Error)
 	GetUserUrlsDB(string) (*UserUrlsResponse , *Error)
-	DelteUserDB(string) (string , *Error)
-	// update user
+	DeleteUserDB(string) (string , *Error)
+	UpdateUserDB(*User) (*UserResponse , *Error) 
 
 	// refresh token commands
 	CreateRefreshTokenDB() (string , error)
@@ -168,10 +168,7 @@ func (s *Storage) DeleteRefreshTokenDB(token string) *Error {
 		if err != nil {
 			log.Fatal(err)
 		}
-		return &Error{
-			Message: "token is not valid any more(black listed).",
-			Code: http.StatusUnauthorized,
-		}
+		return BlackListedTokenError()
 	}
 	return nil
 }
@@ -188,7 +185,7 @@ func (s *Storage) GetUserByUsernameDB(username string) (*UserResponse, string , 
 	err := s.DB.QueryRow(query , username).Scan(&user.ID , &user.Username, &userPass , &user.CreatedAt)
 	// this will occure when no result founded
 	if err == sql.ErrNoRows {
-		return nil,"", &Error{Message: fmt.Sprintf("user with username: %s not found", username) , Code: http.StatusNotFound}
+		return nil,"",NotFoundError(username)
 	} else if err != nil {
 		log.Fatal(err)
 	}
@@ -206,10 +203,7 @@ func (s *Storage) GetUserByIDDB(id int) (*UserResponse , *Error) {
 	err := s.DB.QueryRow(query , id).Scan(&user.ID , &user.Username , &user.CreatedAt)
 
 	if err == sql.ErrNoRows {
-		return nil, &Error{
-			Message: "user not found",
-			Code: http.StatusNotFound,
-		}
+		return nil, NotFoundError("user")
 	}
 
 	return &user , nil
@@ -258,10 +252,7 @@ func (s *Storage) GetUserUrlsDB(username string) (*UserUrlsResponse , *Error) {
 		)
 		// checks if there are no rows
 		if scanErr == sql.ErrNoRows {
-			return nil , &Error{
-				Message: "nothing found.",
-				Code: http.StatusNotFound,
-			}
+			return nil , NotFoundError("urls of "+username)
 		}
 		// append url instance to urls field in response instance
 		response.Urls = append(response.Urls, urls)
@@ -280,7 +271,7 @@ func (s *Storage) GetUserUrlsDB(username string) (*UserUrlsResponse , *Error) {
 }
 
 
-func (s *Storage) DelteUserDB(username string) (*UserResponse, *Error) {
+func (s *Storage) DeleteUserDB(username string) (*UserResponse, *Error) {
 	query := `DELETE FROM users WHERE username=$1 RETURNING id,username,created_at`
 	
 	user := UserResponse{}
@@ -288,10 +279,7 @@ func (s *Storage) DelteUserDB(username string) (*UserResponse, *Error) {
 	err := s.DB.QueryRow(query , username).Scan(&user.ID,&user.Username,&user.CreatedAt)
 
 	if err == sql.ErrNoRows {
-		return nil, &Error{
-			Message: "user not found.",
-			Code: http.StatusNotFound,
-		}
+		return nil, NotFoundError(username)
 	} else if err != nil {
 		log.Fatal(err)
 	}
@@ -332,6 +320,24 @@ func (s *Storage) CreateUserDB(user *User) (*UserResponse , *Error) {
 }
 
 
+func (s *Storage) UpdateUserDB(newUsername string , oldUsername string) (*UserResponse , *Error) {
+	query := `UPDATE users SET username=$1 WHERE username=$2 RETURNING id,username,created_at`
+
+	var response UserResponse
+
+	err := s.DB.QueryRow(query , newUsername,oldUsername).Scan(&response.ID,&response.Username,&response.CreatedAt)
+
+	if err == sql.ErrNoRows {
+		return nil , NotFoundError(oldUsername)
+	} else if err != nil {
+		log.Fatal(err)
+	}
+	
+	return &response, nil
+
+}
+
+
 func (s *Storage) CreateUrlDB(url *Url) (*Url,*Error) {
 	query := `INSERT INTO urls (user_id , old_url , new_url, clicks , created_at) VALUES (
 		$1 , $2 , $3, $4 , $5) RETURNING *`
@@ -362,7 +368,7 @@ func (s *Storage) UpdateUrlDB(updatedUrl string,id int) (*UrlReponse,*Error) {
 	err := s.DB.QueryRow(query,updatedUrl,id).Scan(&short_url)
 
 	if err == sql.ErrNoRows {
-		return nil,&Error{"url not found." , http.StatusNotFound}
+		return nil, NotFoundError("url")
 	} else if err != nil {
 		log.Fatal(err)
 	}
@@ -381,7 +387,7 @@ func  (s *Storage) DeleteUrlDB(id int) *Error {
 	err := s.DB.QueryRow(query,id).Scan(&new_url_returned)
 	// checks if url existed or not
 	if err == sql.ErrNoRows {
-		return &Error{"url not found." , http.StatusNotFound}
+		return NotFoundError("url")
 	} else if err != nil {
 		log.Fatal(err)
 	}
@@ -423,10 +429,7 @@ func (s *Storage) GetUrlByShortUrl(shortUrl string) (*UrlReponse , *Error) {
 
 
 	if err == sql.ErrNoRows {
-		return nil, &Error{
-			Message: "url not found.",
-			Code: http.StatusNotFound,
-		}
+		return nil, NotFoundError(shortUrl)
 	} else if err != nil{
 		log.Fatal(err)
 	}
