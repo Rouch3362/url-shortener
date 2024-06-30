@@ -27,6 +27,7 @@ type DBCommands interface {
 	
 	// url commands
 	CreateUrlDB() (string , *Error)
+	DeleteUrlDB(string) *Error
 	GetUrlByShortUrl(string) (*Url , *Error)
 
 }
@@ -224,8 +225,6 @@ func (s *Storage) GetUserUrlsDB(username string) (*UserUrlsResponse , *Error) {
 
 	// ==============================================
 
-	
-
 	query := `SELECT users.id, users.username, urls.id, urls.old_url, urls.new_url,urls.clicks, urls.created_at, users.created_at 
 			  FROM users 
 			  JOIN urls ON urls.user_id = users.id WHERE users.username=$1`
@@ -337,7 +336,7 @@ func (s *Storage) CreateUrlDB(url *Url) (*Url,*Error) {
 		$1 , $2 , $3, $4 , $5) RETURNING *`
 
 	// creating instance for filling the returen results from insert command
-	createdUrl := Url{}
+		createdUrl := Url{}
 	err := s.DB.QueryRow(query , url.User , url.OldUrl, url.NewUrl, url.Clicks ,url.CreatedAt).Scan(
 		&createdUrl.ID,
 		&createdUrl.User,
@@ -354,6 +353,20 @@ func (s *Storage) CreateUrlDB(url *Url) (*Url,*Error) {
 	return &createdUrl, nil
 }
 
+
+func  (s *Storage) DeleteUrlDB(new_url string) *Error {
+	query := `DELETE FROM urls WHERE new_url=$1 RETURNING new_url`
+
+	var new_url_returned string
+	err := s.DB.QueryRow(query,new_url).Scan(&new_url_returned)
+	// checks if url existed or not
+	if err == sql.ErrNoRows {
+		return &Error{"url not found." , http.StatusNotFound}
+	} else if err != nil {
+		log.Fatal(err)
+	}
+	return nil
+}
 
 
 func (s *Storage) IncreaseClicksUrlDB(newUrl string) {
