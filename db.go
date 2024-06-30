@@ -27,6 +27,7 @@ type DBCommands interface {
 	
 	// url commands
 	CreateUrlDB() (string , *Error)
+	UpdateUrlDB(int) (*UrlReponse,*Error)
 	DeleteUrlDB(string) *Error
 	GetUrlByShortUrl(string) (*Url , *Error)
 
@@ -354,11 +355,30 @@ func (s *Storage) CreateUrlDB(url *Url) (*Url,*Error) {
 }
 
 
-func  (s *Storage) DeleteUrlDB(new_url string) *Error {
-	query := `DELETE FROM urls WHERE new_url=$1 RETURNING new_url`
+func (s *Storage) UpdateUrlDB(updatedUrl string,id int) (*UrlReponse,*Error) {
+	query := `UPDATE urls SET old_url=$1 WHERE id=$2 RETURNING new_url`
+
+	var short_url string
+	err := s.DB.QueryRow(query,updatedUrl,id).Scan(&short_url)
+
+	if err == sql.ErrNoRows {
+		return nil,&Error{"url not found." , http.StatusNotFound}
+	} else if err != nil {
+		log.Fatal(err)
+	}
+
+
+	response , _ := s.GetUrlByShortUrl(short_url) 
+
+	return response , nil
+}
+
+
+func  (s *Storage) DeleteUrlDB(id int) *Error {
+	query := `DELETE FROM urls WHERE id=$1 RETURNING new_url`
 
 	var new_url_returned string
-	err := s.DB.QueryRow(query,new_url).Scan(&new_url_returned)
+	err := s.DB.QueryRow(query,id).Scan(&new_url_returned)
 	// checks if url existed or not
 	if err == sql.ErrNoRows {
 		return &Error{"url not found." , http.StatusNotFound}
