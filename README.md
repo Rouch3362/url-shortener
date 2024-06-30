@@ -110,5 +110,5 @@
 #### Getting User's URL's
 
 ```http
-  GET /api/users/{username}/urls
+  GET /api/v1/users/{username}/urls
 ```
