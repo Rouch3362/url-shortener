@@ -26,6 +26,9 @@ type User struct {
 	Password  string 	`json:"password" db:"password"`
 	CreatedAt time.Time	`json:"createdAt" db:"created_at"`
 }
+type UserUpdateRequest struct {
+	Username	string		`json:"username" db:"username"`
+}
 // a struct for creating new user
 type UserRequest struct {
 	Username  string 	`json:"username" db:"username"`
@@ -67,6 +70,7 @@ type RefershTokenRequest struct {
 type VerifyTokenResult struct {
 	UserId 		int	
 	Username 	string
+	Type		string
 }
 
 // a struct for request to create new url
