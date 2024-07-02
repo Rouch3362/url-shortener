@@ -11,7 +11,7 @@ import (
 // our custom error struct
 type Error struct {
 	Message string `json:"message"`
-	Code  int    `json:"code"`
+	Code  int      `json:"code"`
 }
 
 // wrote a method for our new custom error struct so we can use it for returning errors of functions
@@ -27,7 +27,7 @@ type User struct {
 	CreatedAt time.Time	`json:"createdAt" db:"created_at"`
 }
 type UserUpdateRequest struct {
-	Username	string		`json:"username" db:"username"`
+	Username	string	`json:"username" db:"username"`
 }
 // a struct for creating new user
 type UserRequest struct {
@@ -83,7 +83,7 @@ type Url struct {
 	User 		int			`json:"user" db:"user_id"`
 	OldUrl 		string		`json:"oldUrl" db:"old_url"`
 	NewUrl 		string		`json:"newUrl" db:"new_url"`
-	Clicks		int				`json:"clicks" db:"clicks"`
+	Clicks		int			`json:"clicks" db:"clicks"`
 	CreatedAt	time.Time	`json:"createdAt" db:"created_at"`
 }
 // a struct for nested data from database
