@@ -37,7 +37,7 @@ POST /api/v1/user/login/refresh
 | `refresh`      | `string` | **Required**. your JWT refresh token |
 
 ```http
-PUT|PATCH /api/v1/users/{username}
+PUT | PATCH /api/v1/users/{username}
 ```
 
 | Parameter | Type     | Description                       |
