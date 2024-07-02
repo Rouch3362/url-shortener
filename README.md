@@ -37,7 +37,11 @@ POST /api/v1/user/login/refresh
 | `refresh`      | `string` | **Required**. your JWT refresh token |
 
 ```http
-PUT | PATCH /api/v1/users/{username}
+PUT /api/v1/users/{username}
+```
+OR
+```http
+PATCH /api/v1/users/{username}
 ```
 
 | Parameter | Type     | Description                       |
@@ -88,8 +92,13 @@ POST /api/v1/url
 ### Updating Long URL of Short URL
 
 ```http
-PUT|PATCH /api/v1/url/{uuid}
+PUT /api/v1/url/{uuid}
 ```
+OR
+```http
+PATCH /api/v1/url/{uuid}
+```
+
 
 | Parameter | Type     | Description                       |
 | :-------- | :------- | :-------------------------------- |
