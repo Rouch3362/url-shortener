@@ -1,3 +1,6 @@
+# URL Shortener
+
+#### This golang app can shorten your link and provide you a link that can be shared with your friends easily. for this project my goal was to build everything from scratch to have a deep understanding of how things like ORM’s work and built some functionalities for JWT.
 
 ## API Endpoints
 
