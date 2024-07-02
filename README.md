@@ -18,7 +18,7 @@ POST /api/v1/user/register
 ### Loging In To An Account
 
 ```http
-  POST /api/v1/user/login
+POST /api/v1/user/login
 ```
 
 | Parameter | Type     | Description                       |
@@ -29,7 +29,7 @@ POST /api/v1/user/register
 ### Refreshing JWT Token
 
 ```http
-  POST /api/v1/user/login/refresh
+POST /api/v1/user/login/refresh
 ```
 
 | Parameter | Type     | Description                       |
@@ -50,7 +50,7 @@ POST /api/v1/user/register
 | `Authorization`      | `string` | **Required**. Bearer 'your  JWT Access token' 
 
 ```http
-  DELETE /api/v1/users/{username}
+DELETE /api/v1/users/{username}
 ```
 
 | Parameter | Type     | Description                       |
@@ -65,7 +65,7 @@ POST /api/v1/user/register
 ### Getting A User
 
 ```http
-  GET /api/v1/users/${username}/
+GET /api/v1/users/${username}/
 ```
 
 
@@ -73,7 +73,7 @@ POST /api/v1/user/register
 ### Generating New Short Link
 
 ```http
-  POST /api/v1/url
+POST /api/v1/url
 ```
 
 | Parameter | Type     | Description                       |
@@ -88,7 +88,7 @@ POST /api/v1/user/register
 ### Updating Long URL of Short URL
 
 ```http
-  PUT|PATCH /api/v1/url/{uuid}
+PUT|PATCH /api/v1/url/{uuid}
 ```
 
 | Parameter | Type     | Description                       |
@@ -103,7 +103,7 @@ POST /api/v1/user/register
 ### Deleting a Short URL
 
 ```http
-  DELETE /api/v1/url/{uuid} 
+DELETE /api/v1/url/{uuid} 
 ```
 #### Header Parameter:
 | Parameter | Type     | Description                       |
@@ -113,5 +113,5 @@ POST /api/v1/user/register
 #### Getting User's URL's
 
 ```http
-  GET /api/v1/users/{username}/urls
+GET /api/v1/users/{username}/urls
 ```
