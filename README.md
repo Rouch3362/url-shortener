@@ -36,6 +36,8 @@ POST /api/v1/user/login/refresh
 | :-------- | :------- | :-------------------------------- |
 | `refresh`      | `string` | **Required**. your JWT refresh token |
 
+### Updating User 
+
 ```http
 PUT /api/v1/users/{username}
 ```
@@ -52,6 +54,8 @@ PATCH /api/v1/users/{username}
 | Parameter | Type     | Description                       |
 | :-------- | :------- | :-------------------------------- |
 | `Authorization`      | `string` | **Required**. Bearer 'your  JWT Access token' 
+
+### Deleting User
 
 ```http
 DELETE /api/v1/users/{username}
