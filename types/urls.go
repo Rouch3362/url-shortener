@@ -1,6 +1,11 @@
 package types
 
-import "regexp"
+import (
+	"regexp"
+
+	"github.com/Rouch3362/url-shortener/cmd"
+	"github.com/lithammer/shortuuid/v4"
+)
 
 type CreateUrlRequest struct {
 	Url string `json:"url"`
@@ -20,4 +25,25 @@ func (c *CreateUrlRequest) Validator() string {
 	}
 
 	return ""
+}
+
+
+
+type DBCreateUrlRequest struct {
+	userId  	int
+	longUrl 	string
+	shortUrl	string
+}
+
+
+func (d *DBCreateUrlRequest) CreateUrl() *DBCreateUrlRequest {
+	// generating short uuid
+	uuid := shortuuid.New()
+
+	// getting the base URL for adding short uuid to it
+	wAddr := cmd.ReadEnvVar("W_ADDR")
+
+	d.shortUrl = wAddr+uuid
+
+	return d
 }
