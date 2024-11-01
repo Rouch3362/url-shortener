@@ -4,12 +4,12 @@ import (
 	"log"
 
 	"github.com/Rouch3362/url-shortener/api"
-	"github.com/Rouch3362/url-shortener/cmd"
+	"github.com/Rouch3362/url-shortener/cmd/db"
 )
 
 // main function to run the whole app
 func main() {
-	storage , err := cmd.ConnectionToDB()
+	storage , err := db.ConnectionToDB()
 
 	if err != nil {
 		log.Fatal(err)
@@ -21,5 +21,7 @@ func main() {
 		log.Fatal(err)
 	}
 
-	api.Run()
+	apiServer := api.APIServer{Addr: ":8000", DB: storage}
+
+	apiServer.Run()
 }
