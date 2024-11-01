@@ -3,13 +3,14 @@ package types
 import (
 	"regexp"
 
-	"github.com/Rouch3362/url-shortener/cmd"
+	"github.com/joho/godotenv"
 	"github.com/lithammer/shortuuid/v4"
 )
 
 type CreateUrlRequest struct {
 	Url string `json:"url"`
 }
+
 // validating the URL user enters in the CreateUrlRequest struct
 func (c *CreateUrlRequest) Validator() string {
 	if len(c.Url) == 0 {
@@ -30,20 +31,19 @@ func (c *CreateUrlRequest) Validator() string {
 
 
 type DBCreateUrlRequest struct {
-	userId  	int
-	longUrl 	string
-	shortUrl	string
+	UserId  	int  
+	LongUrl 	string
+	ShortUrl	string
 }
 
 
-func (d *DBCreateUrlRequest) CreateUrl() *DBCreateUrlRequest {
+func (d *DBCreateUrlRequest) CreateUrl() {
 	// generating short uuid
 	uuid := shortuuid.New()
 
 	// getting the base URL for adding short uuid to it
-	wAddr := cmd.ReadEnvVar("W_ADDR")
+	
+	env,_ := godotenv.Read(".env")
 
-	d.shortUrl = wAddr+uuid
-
-	return d
+	d.ShortUrl = env["W_ADDR"]+uuid
 }
