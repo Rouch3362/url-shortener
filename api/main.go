@@ -20,6 +20,7 @@ func (a *APIServer) Run() {
 	router.HandleFunc("/urls" , a.createUrlsHandler).Methods("POST")
 	router.HandleFunc("/users", a.createUserHandler).Methods("POST")
 	router.HandleFunc("/login", a.LoginHandler).Methods("POST")
+	router.HandleFunc("/refresh-token", a.RefreshTokenHandler).Methods("POST")
 
 	fmt.Println("Server is Running on port 8000")
 	http.ListenAndServe(a.Addr, router)
