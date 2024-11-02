@@ -77,3 +77,24 @@ func GenerateJWTToken(payload *types.UserResponse, isAccessToken bool) string {
 
 	return tokenString
 }
+
+
+func DecodeJWTToken(token string) (*types.UserResponse, error) {
+	jwtSecret := ReadEnvVar("JWT_SECRET")
+	claims := jwt.MapClaims{}
+
+	_ , err := jwt.ParseWithClaims(token, claims, func(t *jwt.Token) (interface{}, error) {
+		return []byte(jwtSecret), nil
+	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	username := claims["username"].(string)
+	userId :=	claims["id"].(int)
+	user := types.UserResponse{Username: username, Id: userId, CreatedAt: ""}
+
+
+	return &user,nil
+}
