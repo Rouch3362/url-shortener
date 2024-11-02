@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
-
 	"github.com/Rouch3362/url-shortener/cmd"
 	"github.com/Rouch3362/url-shortener/types"
 )
@@ -44,16 +43,59 @@ func (a *APIServer) LoginHandler(w http.ResponseWriter , r *http.Request) {
 	// getting user from database
 	userFromDB := a.DB.GetUserByUsername(userPayload.Username)
 	// creating access and refresh token for sending to client
-	accessToken := cmd.GenerateJWTToken(userFromDB, true)
-	refreshToken := cmd.GenerateJWTToken(userFromDB, false)
+	tokenResponse := cmd.GenerateAuthTokens(userFromDB)
 
-	// formats it properly
-	tokenResponse := types.Token{
-		AcccessToken: accessToken,
-		RefreshToken: refreshToken,
+	tokenDB := types.TokenDBRequest{
+		UserId: userFromDB.Id,
+		AccessToken: tokenResponse.AcccessToken,
+		RefreshToken: tokenResponse.RefreshToken,
+		ExpiresAt: cmd.ExpireationTime(false),
 	}
+
+	a.DB.SaveToken(&tokenDB)
 
 	// sending response
 	cmd.JsonGenerator(w, 200, tokenResponse)
 	
+}
+
+
+
+func (a *APIServer) RefreshTokenHandler(w http.ResponseWriter, r *http.Request) {
+	refreshInstance := &types.RefreshTokenRequest{}
+
+	err := json.NewDecoder(r.Body).Decode(refreshInstance)
+
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	validationErr := refreshInstance.Validate()
+
+	if validationErr != "" {
+		message := types.ErrorMessage{Message: validationErr}
+		cmd.JsonGenerator(w, 400, message)
+		return
+	}
+
+	isRefreshTokenValid := a.DB.DoesRefreshTokenExists(refreshInstance.RefreshToken)
+
+
+	if !isRefreshTokenValid {
+		message := types.ErrorMessage{Message: "refresh token is not valid"}
+		cmd.JsonGenerator(w, 401, message)
+		return
+	}
+
+	userCredentials , err := cmd.DecodeJWTToken(refreshInstance.RefreshToken)
+
+	if err != nil {
+		message := types.ErrorMessage{Message: err.Error()}
+		cmd.JsonGenerator(w, 401, message)
+		return
+	}
+
+	tokenResponse := cmd.GenerateAuthTokens(userCredentials)
+
+	cmd.JsonGenerator(w, 201, tokenResponse)
 }
