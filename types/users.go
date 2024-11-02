@@ -27,7 +27,7 @@ func (u *UserRequest) HashPassword() {
 func (u *UserRequest) ComparePassword(hashedPassword string) bool {
 	err := bcrypt.CompareHashAndPassword([]byte(hashedPassword), []byte(u.Password))
 	
-	return err != nil
+	return err == nil
 }
 
 // validating payloads of user
