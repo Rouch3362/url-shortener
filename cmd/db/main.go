@@ -48,6 +48,13 @@ func (s *Storage) InitDB() error {
 
 	err = s.createUrlsTable()
 
+	if err != nil {
+		return err
+	}
+
+	err = s.createTokenTable()
+
+
 	return err
 }
 
