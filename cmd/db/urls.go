@@ -1,5 +1,10 @@
 package db
 
+import (
+	"log"
+
+	"github.com/Rouch3362/url-shortener/types"
+)
 
 // creating table for storing users
 func (s *Storage) createUrlsTable() error {
@@ -9,7 +14,7 @@ func (s *Storage) createUrlsTable() error {
 		short_url 	VARCHAR(100) NOT NULL,
 		long_url 	TEXT NOT NULL,
 		clicks 		INT NOT NULL DEFAULT 0,	
-		created_at 	timestamp	NOT NULL
+		created_at 	timestamp	NOT NULL DEFAULT now()
 	)`
 
 
@@ -29,9 +34,16 @@ func (s *Storage) createUrlsTable() error {
 
 
 
-// func (s *Storage) createUrls(DBCreateUrlRequets) error {
-// 	query := `INSERT INTO urls(user_id,long_url,short_url) VALUES ($1 , $2 , $3)`
+func (s *Storage) createUrls(urlPayload *types.DBCreateUrlRequest) error {
+	query := `INSERT INTO urls(user_id,long_url,short_url) VALUES ($1 , $2 , $3)`
+
+	_, err := s.DB.Exec(query)
 
 
+	if err != nil {
+		log.Fatal(err)
+	}
 
-// }
+
+	return nil
+}
