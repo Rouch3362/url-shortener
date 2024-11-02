@@ -36,11 +36,19 @@ func JsonGenerator(w http.ResponseWriter, statusCode int, value any) {
 	}
 }
 
+func ExpireationTime(isAccessToken bool) int64 {
+	// expires at 12 hours later of generation
+	expHour := time.Hour * 12
+	// changes based on argument entered
+	if !isAccessToken {
+		expHour *= 2
+	}
 
+	return time.Now().Add(expHour).Unix()
+}
 
 func GenerateJWTToken(payload *types.UserResponse, isAccessToken bool) string {
-	// expires at 12 hours later of generation
-	expHour := time.Hour * 12 
+	 
 
 	// the default type of token is access token
 	tokenType := "access"
@@ -48,14 +56,13 @@ func GenerateJWTToken(payload *types.UserResponse, isAccessToken bool) string {
 	// changes based on argument entered
 	if !isAccessToken {
 		tokenType = "refresh"
-		expHour *= 2
 	}
 
 	// payload of token
 	claims := jwt.MapClaims{
-		"id": payload.Id,
+		"userId": payload.Id,
 		"username": payload.Username,
-		"exp": time.Now().Add(expHour).Unix(),
+		"exp": ExpireationTime(isAccessToken),
 		"type": tokenType,
 	}
 
@@ -79,6 +86,20 @@ func GenerateJWTToken(payload *types.UserResponse, isAccessToken bool) string {
 }
 
 
+
+func GenerateAuthTokens(payload *types.UserResponse) *types.Token {
+	access  := GenerateJWTToken(payload, true)
+	refresh := GenerateJWTToken(payload, false)
+
+	result := types.Token{
+		AcccessToken: access,
+		RefreshToken: refresh,
+	}
+
+	return &result
+}
+
+
 func DecodeJWTToken(token string) (*types.UserResponse, error) {
 	jwtSecret := ReadEnvVar("JWT_SECRET")
 	claims := jwt.MapClaims{}
@@ -92,7 +113,7 @@ func DecodeJWTToken(token string) (*types.UserResponse, error) {
 	}
 
 	username := claims["username"].(string)
-	userId :=	claims["id"].(int)
+	userId 	 :=	int(claims["userId"].(float64))
 	user := types.UserResponse{Username: username, Id: userId, CreatedAt: ""}
 
 
