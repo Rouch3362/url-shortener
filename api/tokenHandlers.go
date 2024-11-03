@@ -97,5 +97,14 @@ func (a *APIServer) RefreshTokenHandler(w http.ResponseWriter, r *http.Request) 
 
 	tokenResponse := cmd.GenerateAuthTokens(userCredentials)
 
+	tokenDB := types.TokenDBRequest{
+		UserId: userCredentials.Id,
+		AccessToken: tokenResponse.AcccessToken,
+		RefreshToken: tokenResponse.RefreshToken,
+		ExpiresAt: cmd.ExpireationTime(false),
+	}
+
+	a.DB.SaveToken(&tokenDB)
+
 	cmd.JsonGenerator(w, 201, tokenResponse)
 }
