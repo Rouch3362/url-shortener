@@ -50,9 +50,31 @@ func (s *Storage) DoesRefreshTokenExists(refreshToken string) bool {
 	var exists bool
 	err := s.DB.QueryRow(query, refreshToken).Scan(&exists)
 
+	if exists {
+		err := s.RemoveRefreshToken(refreshToken)
+
+		if err != nil {
+			log.Fatal(err)
+		}
+	}
+
 	if err != nil {
 		log.Fatal(err)
 	}
 
 	return exists
+}
+
+
+func (s *Storage) RemoveRefreshToken(refreshToken string) error {
+	query := `DELETE FROM tokens WHERE refresh_token = $1`
+
+	_, err := s.DB.Exec(query, refreshToken)
+
+
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
