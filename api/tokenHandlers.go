@@ -90,7 +90,7 @@ func (a *APIServer) RefreshTokenHandler(w http.ResponseWriter, r *http.Request) 
 	}
 
 	// decoding jwt token to get user info's and not to reach for database calls
-	userCredentials , err := cmd.DecodeJWTToken(refreshInstance.RefreshToken)
+	userCredentials , _, err := cmd.VerifyJWTToken(refreshInstance.RefreshToken, false)
 
 	if err != nil {
 		message := types.ErrorMessage{Message: err.Error()}
