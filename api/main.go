@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"net/http"
 	"github.com/Rouch3362/url-shortener/cmd/db"
-	"github.com/gorilla/mux"
 )
 
 // an API server struct for accessing storage object and running its methods
@@ -15,12 +14,16 @@ type APIServer struct {
 
 // a method for APIServer to run the server
 func (a *APIServer) Run() {
-	router := mux.NewRouter()
+	router := http.NewServeMux()
+	
+	
+	createUrlRoute := http.HandlerFunc(a.createUrlsHandler)
+	router.Handle("/urls" , AuthMiddleware(createUrlRoute))
+	router.HandleFunc("/users", a.createUserHandler)
+	router.HandleFunc("/login", a.LoginHandler)
 
-	router.HandleFunc("/urls" , a.createUrlsHandler).Methods("POST")
-	router.HandleFunc("/users", a.createUserHandler).Methods("POST")
-	router.HandleFunc("/login", a.LoginHandler).Methods("POST")
-	router.HandleFunc("/refresh-token", a.RefreshTokenHandler).Methods("POST")
+	refreshTokenRoute := http.HandlerFunc(a.RefreshTokenHandler)
+	router.Handle("/refresh-token", AuthMiddleware(refreshTokenRoute))
 
 	fmt.Println("Server is Running on port 8000")
 	http.ListenAndServe(a.Addr, router)
