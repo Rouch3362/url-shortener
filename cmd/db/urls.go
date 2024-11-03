@@ -2,7 +2,6 @@ package db
 
 import (
 	"log"
-
 	"github.com/Rouch3362/url-shortener/types"
 )
 
@@ -34,10 +33,10 @@ func (s *Storage) createUrlsTable() error {
 
 
 
-func (s *Storage) createUrls(urlPayload *types.DBCreateUrlRequest) error {
+func (s *Storage) CreateUrlDB(urlPayload *types.DBCreateUrlRequest) error {
 	query := `INSERT INTO urls(user_id,long_url,short_url) VALUES ($1 , $2 , $3)`
 
-	_, err := s.DB.Exec(query)
+	_, err := s.DB.Exec(query, urlPayload.UserId, urlPayload.LongUrl, urlPayload.ShortUrl)
 
 
 	if err != nil {
