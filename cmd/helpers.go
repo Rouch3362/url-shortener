@@ -99,7 +99,7 @@ func GenerateAuthTokens(payload *types.UserResponse) *types.Token {
 }
 
 // extracting user's data from JWT tokens
-func DecodeJWTToken(token string) (*types.UserResponse, error) {
+func VerifyJWTToken(token string, checkIfIsAccessToken bool) (*types.UserResponse, bool, error) {
 	// getting jwt secret from env file
 	jwtSecret := ReadEnvVar("JWT_SECRET")
 	claims := jwt.MapClaims{}
@@ -110,7 +110,7 @@ func DecodeJWTToken(token string) (*types.UserResponse, error) {
 	})
 
 	if err != nil {
-		return nil, err
+		return nil, false, err
 	}
 
 	// extracting username and userID from jwt
@@ -118,6 +118,12 @@ func DecodeJWTToken(token string) (*types.UserResponse, error) {
 	userId 	 :=	int(claims["userId"].(float64))
 	user := types.UserResponse{Username: username, Id: userId, CreatedAt: ""}
 
+	// this block of codes checks if the token that parsed is access token or refresh token.
+	tokenType := claims["type"].(string)
 
-	return &user,nil
+	if checkIfIsAccessToken && tokenType == "access"{
+		return &user, true, nil
+	}
+
+	return &user, false, nil
 }
