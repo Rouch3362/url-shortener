@@ -45,14 +45,15 @@ func (a *APIServer) LoginHandler(w http.ResponseWriter , r *http.Request) {
 	// creating access and refresh token for sending to client
 	tokenResponse := cmd.GenerateAuthTokens(userFromDB)
 
-	tokenDB := types.TokenDBRequest{
-		UserId: userFromDB.Id,
-		AccessToken: tokenResponse.AcccessToken,
-		RefreshToken: tokenResponse.RefreshToken,
-		ExpiresAt: cmd.ExpireationTime(false),
-	}
 
-	a.DB.SaveToken(&tokenDB)
+	// saving generated tokens into database
+	refreshTokenData := &types.TokenDBRequest{
+		RefreshToken: tokenResponse.RefreshToken,
+		UserId: userFromDB.Id,
+		ExpiresAt: cmd.ExpireationTime(false),
+	} 
+
+	a.DB.SaveToken(refreshTokenData)
 
 	// sending response
 	cmd.JsonGenerator(w, 200, tokenResponse)
@@ -78,6 +79,7 @@ func (a *APIServer) RefreshTokenHandler(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
+	// checking if refresh token that user sent with request is valid and exists on database or not
 	isRefreshTokenValid := a.DB.DoesRefreshTokenExists(refreshInstance.RefreshToken)
 
 
@@ -87,6 +89,7 @@ func (a *APIServer) RefreshTokenHandler(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
+	// decoding jwt token to get user info's and not to reach for database calls
 	userCredentials , err := cmd.DecodeJWTToken(refreshInstance.RefreshToken)
 
 	if err != nil {
@@ -95,16 +98,19 @@ func (a *APIServer) RefreshTokenHandler(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
+	// generating new tokens for user
 	tokenResponse := cmd.GenerateAuthTokens(userCredentials)
 
-	tokenDB := types.TokenDBRequest{
-		UserId: userCredentials.Id,
-		AccessToken: tokenResponse.AcccessToken,
-		RefreshToken: tokenResponse.RefreshToken,
-		ExpiresAt: cmd.ExpireationTime(false),
-	}
 
-	a.DB.SaveToken(&tokenDB)
+	// saving new generated tokens into database
+	refreshTokenData := &types.TokenDBRequest{
+		RefreshToken: tokenResponse.RefreshToken,
+		UserId: userCredentials.Id,
+		ExpiresAt: cmd.ExpireationTime(false),
+	} 
+
+	a.DB.SaveToken(refreshTokenData)
+
 
 	cmd.JsonGenerator(w, 201, tokenResponse)
 }
