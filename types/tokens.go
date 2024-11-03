@@ -13,7 +13,6 @@ type RefreshTokenRequest struct {
 }
 
 type TokenDBRequest struct {
-	AccessToken 	string
 	RefreshToken 	string
 	ExpiresAt		int64
 	UserId 			int
