@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
-
 	"github.com/Rouch3362/url-shortener/cmd"
 	"github.com/Rouch3362/url-shortener/types"
 )
@@ -12,8 +11,12 @@ import (
 
 
 // handling POST requests for shorting an URL 
-func createUrlsHandler(w http.ResponseWriter, r *http.Request) {
+func (a *APIServer) createUrlsHandler(w http.ResponseWriter, r *http.Request) {
 	UrlRequest := &types.CreateUrlRequest{}
+
+	authToken := r.Header.Get("Authorization")
+
+	
 
 	err := json.NewDecoder(r.Body).Decode(UrlRequest)
 
@@ -27,5 +30,21 @@ func createUrlsHandler(w http.ResponseWriter, r *http.Request) {
 	if validationError != "" {
 		message := types.ErrorMessage{Message: validationError}
 		cmd.JsonGenerator(w, 400, message)
+		return
 	}
+
+	userCredentials , _, _ := cmd.VerifyJWTToken(authToken,false)
+
+	// creating an instance for url
+	urlInstance := types.DBCreateUrlRequest{
+		UserId: userCredentials.Id,
+		LongUrl: UrlRequest.Url,
+	}
+	// makes an uuid for saved long URL and saves that to a field called short URL
+	urlInstance.CreateUrl()
+
+
+	a.DB.CreateUrlDB(&urlInstance)
+
+	cmd.JsonGenerator(w , 200 , urlInstance)
 }
