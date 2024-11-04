@@ -2,6 +2,8 @@ package db
 
 import (
 	"log"
+
+	"github.com/Rouch3362/url-shortener/cmd"
 	"github.com/Rouch3362/url-shortener/types"
 )
 
@@ -45,4 +47,35 @@ func (s *Storage) CreateUrlDB(urlPayload *types.DBCreateUrlRequest) error {
 
 
 	return nil
+}
+
+
+func (s *Storage) IncreaseURLClicks(urlId string) {
+	query := `UPDATE urls SET clicks = clicks + 1 WHERE short_url = $1`
+
+	_, err := s.DB.Exec(query, urlId)
+
+	if err != nil {
+		log.Fatal(err)
+	}
+}
+
+func (s *Storage) GetURL(urlId string) string {
+	query := `SELECT long_url FROM urls WHERE short_url = $1`
+
+	W_ADDR := cmd.ReadEnvVar("W_ADDR") 
+	// combining url id with domain name
+	shortURL := W_ADDR+urlId
+
+	var originalUrl string
+	
+	err := s.DB.QueryRow(query, shortURL).Scan(&originalUrl)
+
+	if err != nil {
+		log.Fatal(err)
+	}
+	// increasing click field whenever we pull the url from database
+	s.IncreaseURLClicks(shortURL)
+
+	return originalUrl
 }
