@@ -13,3 +13,21 @@ type UserResponse struct {
 	Username	string `json:"username"`
 	CreatedAt 	string	`json:"created_at"`
 }
+
+type URLResponse struct{
+	OriginalURL string `json:"original_url"`	
+}
+
+type URL struct {
+	OriginalURL 	string 	`json:"original_url"`
+	ShortURL 		string	`json:"short_url"`
+	Clicks			int		`json:"clicks"`
+	CreatedAt 		string	`json:"created_at"`
+}
+
+type UserURLsResponse struct {
+	Id			int    `json:"id"`
+	Username 	string `json:"username"`
+	CreatedAt	string `json:"created_at"`
+	Urls		[]URL  `json:"urls"`
+}
