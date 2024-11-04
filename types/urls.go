@@ -47,3 +47,8 @@ func (d *DBCreateUrlRequest) CreateUrl() {
 
 	d.ShortUrl = env["W_ADDR"]+uuid
 }
+
+
+type URLResponse struct{
+	OriginalURL string `json:"original_url"`	
+}
