@@ -6,11 +6,10 @@ import (
 	"net/http"
 	"github.com/Rouch3362/url-shortener/cmd"
 	"github.com/Rouch3362/url-shortener/types"
+	"github.com/gorilla/mux"
 )
 
-
-
-// handling POST requests for shorting an URL 
+// handling POST requests for shorting an URL
 func (a *APIServer) createUrlsHandler(w http.ResponseWriter, r *http.Request) {
 	UrlRequest := &types.CreateUrlRequest{}
 
@@ -47,4 +46,17 @@ func (a *APIServer) createUrlsHandler(w http.ResponseWriter, r *http.Request) {
 	a.DB.CreateUrlDB(&urlInstance)
 
 	cmd.JsonGenerator(w , 200 , urlInstance)
+}
+
+
+func (a *APIServer) getUrlHandler(w http.ResponseWriter, r *http.Request) {
+	pathVars := mux.Vars(r)
+
+	urlId := pathVars["id"]
+
+	originlaURL := a.DB.GetURL(urlId)
+
+	urlResponse := types.URLResponse{OriginalURL: originlaURL}
+
+	cmd.JsonGenerator(w, http.StatusOK, urlResponse)
 }
