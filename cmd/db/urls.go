@@ -1,10 +1,13 @@
 package db
 
 import (
+	"database/sql"
+	"errors"
 	"log"
 
 	"github.com/Rouch3362/url-shortener/cmd"
 	"github.com/Rouch3362/url-shortener/types"
+	"github.com/lib/pq"
 )
 
 // creating table for storing users
@@ -41,8 +44,8 @@ func (s *Storage) CreateUrlDB(urlPayload *types.DBCreateUrlRequest) error {
 	_, err := s.DB.Exec(query, urlPayload.UserId, urlPayload.LongUrl, urlPayload.ShortUrl)
 
 
-	if err != nil {
-		log.Fatal(err)
+	if err, ok := err.(*pq.Error); ok && err.Code.Name() == types.FOREIGN_KEY_ERROR {
+		return errors.New("user does not exists (JWT token is not valid)")
 	}
 
 
@@ -60,7 +63,7 @@ func (s *Storage) IncreaseURLClicks(urlId string) {
 	}
 }
 
-func (s *Storage) GetURL(urlId string) string {
+func (s *Storage) GetURL(urlId string) (string, error){
 	query := `SELECT long_url FROM urls WHERE short_url = $1`
 
 	W_ADDR := cmd.ReadEnvVar("W_ADDR") 
@@ -71,11 +74,11 @@ func (s *Storage) GetURL(urlId string) string {
 	
 	err := s.DB.QueryRow(query, shortURL).Scan(&originalUrl)
 
-	if err != nil {
-		log.Fatal(err)
+	if err == sql.ErrNoRows {
+		return "", errors.New("URL not found")
 	}
 	// increasing click field whenever we pull the url from database
 	s.IncreaseURLClicks(shortURL)
 
-	return originalUrl
+	return originalUrl,nil
 }
