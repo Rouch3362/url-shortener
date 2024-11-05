@@ -15,7 +15,6 @@ func (a *APIServer) createUrlsHandler(w http.ResponseWriter, r *http.Request) {
 
 	authToken := r.Header.Get("Authorization")
 
-	
 
 	err := json.NewDecoder(r.Body).Decode(UrlRequest)
 
@@ -43,7 +42,13 @@ func (a *APIServer) createUrlsHandler(w http.ResponseWriter, r *http.Request) {
 	urlInstance.CreateUrl()
 
 
-	a.DB.CreateUrlDB(&urlInstance)
+	err = a.DB.CreateUrlDB(&urlInstance)
+
+	if err != nil {
+		message := types.ErrorMessage{Message: err.Error()}
+		cmd.JsonGenerator(w, http.StatusUnauthorized, message)
+		return
+	}
 
 	cmd.JsonGenerator(w , 200 , urlInstance)
 }
@@ -54,7 +59,13 @@ func (a *APIServer) getUrlHandler(w http.ResponseWriter, r *http.Request) {
 
 	urlId := pathVars["id"]
 
-	originlaURL := a.DB.GetURL(urlId)
+	originlaURL, err := a.DB.GetURL(urlId)
+
+	if err != nil {
+		message := types.ErrorMessage{Message: err.Error()}
+		cmd.JsonGenerator(w, http.StatusNotFound, message)
+		return
+	}
 
 	urlResponse := types.URLResponse{OriginalURL: originlaURL}
 
