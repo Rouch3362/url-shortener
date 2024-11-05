@@ -1,9 +1,13 @@
 package db
 
 import (
+	"database/sql"
+	"errors"
+	"fmt"
 	"log"
 
 	"github.com/Rouch3362/url-shortener/types"
+	"github.com/lib/pq"
 )
 
 // creating table for storing urls
@@ -44,15 +48,15 @@ func (s *Storage) CreateNewUser(user *types.UserRequest) (*types.UserResponse, e
 		&userResponse.CreatedAt,
 	)
 
-	if err != nil {
-		log.Fatal(err)
+	if err, ok := err.(*pq.Error); ok && err.Code.Name() == types.UNIQUE_VIOLATION {
+		return nil, fmt.Errorf("user with username %v already exists", user.Username)
 	}
 
 	return &userResponse, nil
 }
 
 // getting user hashed password from database
-func (s *Storage) GetUserPassword(username string) string {
+func (s *Storage) GetUserPassword(username string) (string, error) {
 	query := `SELECT password FROM users WHERE username = $1`
 
 	// an empty string for filling after query executing
@@ -60,15 +64,15 @@ func (s *Storage) GetUserPassword(username string) string {
 
 	err := s.DB.QueryRow(query, username).Scan(&hashedPassword)
 
-	if err != nil {
-		log.Fatal(err)
+	if err == sql.ErrNoRows {
+		return "",errors.New("user not found")
 	}
 
-	return hashedPassword
+	return hashedPassword,nil
 }
 
 // finding user by username from database
-func (s *Storage) GetUserByUsername(username string) *types.UserResponse {
+func (s *Storage) GetUserByUsername(username string) (*types.UserResponse,error) {
 	query := `SELECT id,username,created_at FROM users WHERE username = $1`
 
 	// creating empty instance of user response for filling after query executed
@@ -79,14 +83,15 @@ func (s *Storage) GetUserByUsername(username string) *types.UserResponse {
 		&result.Username,
 		&result.CreatedAt,
 	)
-	if err != nil {
-		log.Fatal(err)
+	if err == sql.ErrNoRows {
+		return nil, errors.New("user not found")
 	}
 
-	return result
+
+	return result, err
 }
 
-func (s *Storage) GetUserURLs(username string) *types.UserURLsResponse {
+func (s *Storage) GetUserURLs(username string) (*types.UserURLsResponse,error) {
 	query := `SELECT 
 		users.id,
 		urls.long_url, 
@@ -103,11 +108,8 @@ func (s *Storage) GetUserURLs(username string) *types.UserURLsResponse {
 	response := types.UserURLsResponse{} 
 
 	// executing query
-	result , err := s.DB.Query(query, username)
+	result, _:= s.DB.Query(query, username)
 	
-	if err != nil {
-		log.Fatal(err)
-	}
 
 	// iterating over each returend values
 	for result.Next() {
@@ -133,8 +135,26 @@ func (s *Storage) GetUserURLs(username string) *types.UserURLsResponse {
 
 	// if user didn't have any urls in database
 	if !result.Next() {
-		return nil
+		return nil,errors.New("user has no urls or user does not exists")
 	}
 
-	return &response
+	return &response,nil
+}
+
+
+func (s *Storage) DeleteUserDB(username string) error {
+	query := `DELETE FROM users WHERE username = $1`
+
+	result, err := s.DB.Exec(query, username)
+
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	rowsAffected, _ := result.RowsAffected()
+
+	if rowsAffected == 0 {
+		return errors.New("user not found")
+	}
+	return nil
 }
