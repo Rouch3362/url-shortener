@@ -23,7 +23,11 @@ func (a *APIServer) Run() {
 	router.Handle("/urls", AuthMiddleware(createUrlRoute)).Methods("POST")
 	router.HandleFunc("/{id}", a.getUrlHandler).Methods("GET")
 	router.HandleFunc("/users", a.createUserHandler).Methods("POST")
-	router.HandleFunc("/users/{username}", a.GetUserURLs).Methods("GET")
+	router.HandleFunc("/users/{username}", a.GetUser).Methods("GET")
+
+	deleteUserRoute := http.HandlerFunc(a.DeleteUser)
+
+	router.Handle("/users", AuthMiddleware(deleteUserRoute)).Methods("DELETE")
 	// router.HandleFunc("/whoami", a.).Methods("GET")
 	router.HandleFunc("/login", a.LoginHandler).Methods("POST")
 
