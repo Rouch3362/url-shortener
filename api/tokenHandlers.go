@@ -29,7 +29,13 @@ func (a *APIServer) LoginHandler(w http.ResponseWriter , r *http.Request) {
 	}
 
 	// getting hashed password of user for comapring with entered password
-	hashedPassword := a.DB.GetUserPassword(userPayload.Username)
+	hashedPassword, err := a.DB.GetUserPassword(userPayload.Username)
+
+	if err != nil {
+		message := types.ErrorMessage{Message: err.Error()}
+		cmd.JsonGenerator(w, http.StatusNotFound, message)
+		return
+	}
 
 	// checking if hash and password in same
 	isPasswordValid := userPayload.ComparePassword(hashedPassword)
@@ -41,7 +47,7 @@ func (a *APIServer) LoginHandler(w http.ResponseWriter , r *http.Request) {
 	}
 
 	// getting user from database
-	userFromDB := a.DB.GetUserByUsername(userPayload.Username)
+	userFromDB, _ := a.DB.GetUserByUsername(userPayload.Username)
 	// creating access and refresh token for sending to client
 	tokenResponse := cmd.GenerateAuthTokens(userFromDB)
 
