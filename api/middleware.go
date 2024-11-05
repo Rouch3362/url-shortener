@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"net/http"
 	"github.com/Rouch3362/url-shortener/cmd"
 	"github.com/Rouch3362/url-shortener/types"
@@ -19,7 +20,7 @@ func AuthMiddleware(next http.Handler) http.Handler {
 		}
 
 		// validating and checking if user used access token not refresh token
-		_,isAccessToken, err := cmd.VerifyJWTToken(authToken, true)
+		userInfo,isAccessToken, err := cmd.VerifyJWTToken(authToken, true)
 
 		if err != nil {
 			message := types.ErrorMessage{Message: err.Error()}
@@ -33,6 +34,10 @@ func AuthMiddleware(next http.Handler) http.Handler {
 			cmd.JsonGenerator(w, 401, message)
 			return
 		}
+
+
+		ctx := context.WithValue(r.Context(), types.CtxKey, userInfo.Username)
+		r = r.WithContext(ctx)
 
 		// if everything is fine the app goes forward
 		next.ServeHTTP(w , r)
