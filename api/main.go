@@ -18,21 +18,25 @@ type APIServer struct {
 func (a *APIServer) Run() {
 	router := mux.NewRouter()
 	
+	subrouter := router.PathPrefix("/api/v1").Subrouter()
 	
 	createUrlRoute := http.HandlerFunc(a.createUrlsHandler)
-	router.Handle("/urls", AuthMiddleware(createUrlRoute)).Methods("POST")
-	router.HandleFunc("/{id}", a.getUrlHandler).Methods("GET")
-	router.HandleFunc("/users", a.createUserHandler).Methods("POST")
-	router.HandleFunc("/users/{username}", a.GetUser).Methods("GET")
+	subrouter.Handle("/urls", AuthMiddleware(createUrlRoute)).Methods("POST")
+	
+	deleteUrlRoute := http.HandlerFunc(a.deleteUrlHandler)
+	subrouter.Handle("/urls/{id}", AuthMiddleware(deleteUrlRoute)).Methods("DELETE")
+	subrouter.HandleFunc("/{id}", a.getUrlHandler).Methods("GET")
+	subrouter.HandleFunc("/register", a.createUserHandler).Methods("POST")
+	subrouter.HandleFunc("/users/{username}", a.GetUser).Methods("GET")
 
 	deleteUserRoute := http.HandlerFunc(a.DeleteUser)
 
-	router.Handle("/users", AuthMiddleware(deleteUserRoute)).Methods("DELETE")
-	// router.HandleFunc("/whoami", a.).Methods("GET")
-	router.HandleFunc("/login", a.LoginHandler).Methods("POST")
+	subrouter.Handle("/users", AuthMiddleware(deleteUserRoute)).Methods("DELETE")
+	// subrouter.HandleFunc("/whoami", a.).Methods("GET")
+	subrouter.HandleFunc("/login", a.LoginHandler).Methods("POST")
 
 	refreshTokenRoute := http.HandlerFunc(a.RefreshTokenHandler)
-	router.Handle("/refresh-token", AuthMiddleware(refreshTokenRoute)).Methods("POST")
+	subrouter.Handle("/refresh-token", AuthMiddleware(refreshTokenRoute)).Methods("POST")
 
 	fmt.Println("Server is Running on port 8000")
 	http.ListenAndServe(a.Addr, router)
