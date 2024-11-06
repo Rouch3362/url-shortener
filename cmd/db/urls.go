@@ -82,3 +82,41 @@ func (s *Storage) GetURL(urlId string) (string, error){
 
 	return originalUrl,nil
 }
+
+
+func (s *Storage) GetURLObject(urlId string) (*types.URLObject,error) {
+	query := `SELECT users.username,urls.id,urls.long_url,urls.short_url,urls.clicks,urls.created_at 
+		FROM urls JOIN users ON users.id = urls.user_id WHERE urls.id = $1`
+
+	var URLInstance types.URLObject
+
+	err := s.DB.QueryRow(query,urlId).Scan(
+		&URLInstance.User,
+		&URLInstance.Id,
+		&URLInstance.OriginalURL,
+		&URLInstance.ShortURL,
+		&URLInstance.Clicks,
+		&URLInstance.CreatedAt,
+	)
+
+	if err == sql.ErrNoRows {
+		return nil, errors.New("url not found")
+	}
+
+	return &URLInstance, nil
+}
+
+
+func (s *Storage) DeleteURL(urlId string) error {
+
+	query := `DELETE FROM urls WHERE id = $1`
+
+	_ , err := s.DB.Exec(query, urlId)
+
+	if err == sql.ErrNoRows {
+		return errors.New("URL with that id does not exists")
+	}
+
+	return nil
+
+}
