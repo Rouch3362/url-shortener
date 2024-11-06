@@ -19,8 +19,18 @@ type URLResponse struct{
 }
 
 type URL struct {
+	Id				int 	`json:"id"`
 	OriginalURL 	string 	`json:"original_url"`
 	ShortURL 		string	`json:"short_url"`
+	Clicks			int		`json:"clicks"`
+	CreatedAt 		string	`json:"created_at"`
+}
+
+type URLObject struct {
+	Id				int 	`json:"id"`
+	OriginalURL 	string 	`json:"original_url"`
+	ShortURL 		string	`json:"short_url"`
+	User			string	`json:"user"`
 	Clicks			int		`json:"clicks"`
 	CreatedAt 		string	`json:"created_at"`
 }
