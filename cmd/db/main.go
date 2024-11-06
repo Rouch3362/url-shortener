@@ -3,9 +3,8 @@ package db
 import (
 	"database/sql"
 	"fmt"
-
-	// required for using postgres driver
 	"github.com/Rouch3362/url-shortener/cmd"
+	// required for using postgres driver
 	_ "github.com/lib/pq"
 )
 
