@@ -2,8 +2,10 @@ package api
 
 import (
 	"encoding/json"
+	"fmt"
 	"log"
 	"net/http"
+
 	"github.com/Rouch3362/url-shortener/cmd"
 	"github.com/Rouch3362/url-shortener/types"
 	"github.com/gorilla/mux"
@@ -70,4 +72,34 @@ func (a *APIServer) getUrlHandler(w http.ResponseWriter, r *http.Request) {
 	urlResponse := types.URLResponse{OriginalURL: originlaURL}
 
 	cmd.JsonGenerator(w, http.StatusOK, urlResponse)
+}
+
+
+
+
+func (a *APIServer) deleteUrlHandler(w http.ResponseWriter, r *http.Request) {
+	routeVars := mux.Vars(r)
+	urlId	:= routeVars["id"]
+
+	getUrlUser, err := a.DB.GetURLObject(urlId)
+
+	if err != nil {
+		message := types.ErrorMessage{Message:  err.Error()}
+		cmd.JsonGenerator(w, http.StatusNotFound, message)
+		return
+	}
+
+	usernameFromJWT := r.Context().Value(types.CtxKey)
+	fmt.Println(usernameFromJWT, getUrlUser.User)
+	if getUrlUser.User != usernameFromJWT {
+		message := types.ErrorMessage{Message: "you are not allowed to do this"}
+		cmd.JsonGenerator(w, http.StatusMethodNotAllowed, message)
+		return
+	}
+
+
+	a.DB.DeleteURL(urlId)
+
+	message := types.ErrorMessage{Message: "URL deleted successfully"}
+	cmd.JsonGenerator(w, http.StatusOK, message)
 }
