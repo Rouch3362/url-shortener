@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"log"
-
 	"github.com/Rouch3362/url-shortener/types"
 	"github.com/lib/pq"
 )
@@ -94,6 +93,7 @@ func (s *Storage) GetUserByUsername(username string) (*types.UserResponse,error)
 func (s *Storage) GetUserURLs(username string) (*types.UserURLsResponse,error) {
 	query := `SELECT 
 		users.id,
+		urls.id,
 		urls.long_url, 
 		urls.short_url, 
 		users.username, 
@@ -108,7 +108,7 @@ func (s *Storage) GetUserURLs(username string) (*types.UserURLsResponse,error) {
 	response := types.UserURLsResponse{} 
 
 	// executing query
-	result, _:= s.DB.Query(query, username)
+	result, _ := s.DB.Query(query, username)
 	
 
 	// iterating over each returend values
@@ -118,6 +118,7 @@ func (s *Storage) GetUserURLs(username string) (*types.UserURLsResponse,error) {
 		// filling every field of response
 		err := result.Scan(
 			&response.Id,
+			&url.Id,
 			&url.OriginalURL,
 			&url.ShortURL,
 			&response.Username,
@@ -134,9 +135,9 @@ func (s *Storage) GetUserURLs(username string) (*types.UserURLsResponse,error) {
 	}
 
 	// if user didn't have any urls in database
-	if !result.Next() {
+	if len(response.Urls) < 1 {
 		return nil,errors.New("user has no urls or user does not exists")
-	}
+	}	
 
 	return &response,nil
 }
